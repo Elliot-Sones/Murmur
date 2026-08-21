@@ -4,8 +4,17 @@ struct HUDView: View {
     private var controller: DictationController { .shared }
 
     var body: some View {
-        HStack(spacing: 10) {
-            content
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                content
+            }
+            if case .recording = controller.state, !controller.previewText.isEmpty {
+                Text(controller.previewText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .truncationMode(.head)
+            }
         }
         .font(.callout)
         .padding(.horizontal, 16)

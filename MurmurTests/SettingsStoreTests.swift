@@ -25,6 +25,7 @@ final class SettingsStoreTests: XCTestCase {
             "voice processing must default off: without a full-duplex audio path it records silence"
         )
         XCTAssertTrue(store.cleanupEnabled)
+        XCTAssertTrue(store.streamingPreviewEnabled)
         XCTAssertEqual(store.restoreDelayMs, 250)
     }
 
@@ -35,12 +36,14 @@ final class SettingsStoreTests: XCTestCase {
         first.hotkey = .rightCommand
         first.voiceProcessingEnabled = false
         first.cleanupEnabled = false
+        first.streamingPreviewEnabled = false
         first.restoreDelayMs = 400
 
         let second = SettingsStore(defaults: defaults)
         XCTAssertEqual(second.hotkey, .rightCommand)
         XCTAssertFalse(second.voiceProcessingEnabled)
         XCTAssertFalse(second.cleanupEnabled)
+        XCTAssertFalse(second.streamingPreviewEnabled)
         XCTAssertEqual(second.restoreDelayMs, 400)
     }
 }

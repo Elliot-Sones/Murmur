@@ -27,6 +27,7 @@ final class DictationController {
         }
     }
     var audioLevel: Float = 0
+    private(set) var previewText = ""
     private(set) var lastLatencyMs: Int?
     private(set) var lastRun: DictationRunStats?
     private(set) var engineStatus = "Speech model not loaded"
@@ -45,6 +46,7 @@ final class DictationController {
     private let minimumUtterance: Duration = .milliseconds(300)
     private let maximumUtterance: Duration = .seconds(300)
     private var maxDurationTask: Task<Void, Never>?
+    private var previewTask: Task<Void, Never>?
 
     func prepareEngines() {
         Task {
@@ -106,7 +108,11 @@ final class DictationController {
         }
         targetApp = ContextProvider.frontmostApp()
         recordingStartedAt = ContinuousClock.now
+        previewText = ""
         state = .recording
+        if SettingsStore.shared.streamingPreviewEnabled {
+            startPreviewLoop()
+        }
         maxDurationTask = Task { [maximumUtterance] in
             try? await Task.sleep(for: maximumUtterance)
             guard !Task.isCancelled else { return }
@@ -120,6 +126,7 @@ final class DictationController {
     func finishDictation() {
         guard state == .recording else { return }
         maxDurationTask?.cancel()
+        previewTask?.cancel()
         let samples = recorder.stop()
         let startedAt = recordingStartedAt
         recordingStartedAt = nil
@@ -143,9 +150,35 @@ final class DictationController {
     func cancelDictation() {
         guard state == .recording else { return }
         maxDurationTask?.cancel()
+        previewTask?.cancel()
         _ = recorder.stop()
         recordingStartedAt = nil
         state = .idle
+    }
+
+    /// Re-runs the batch engine over the growing buffer for a live HUD preview.
+    /// Cheap on Apple Silicon (~100 ms per tick at 110x realtime) and reuses
+    /// the exact engine that produces the final transcript.
+    private func startPreviewLoop() {
+        previewTask?.cancel()
+        previewTask = Task {
+            let minimumSamples = 16_000
+            let previewWindow = 16_000 * 60
+            while !Task.isCancelled, state == .recording {
+                try? await Task.sleep(for: .milliseconds(900))
+                guard !Task.isCancelled, state == .recording else { return }
+                guard await transcriber.isReady else { continue }
+                var samples = recorder.snapshotSamples()
+                guard samples.count >= minimumSamples else { continue }
+                if samples.count > previewWindow {
+                    samples = Array(samples.suffix(previewWindow))
+                }
+                guard let text = try? await transcriber.transcribe(samples) else { continue }
+                if state == .recording, !text.isEmpty {
+                    previewText = text
+                }
+            }
+        }
     }
 
     private func runPipeline(samples: [Float], releasedAt: ContinuousClock.Instant) async {

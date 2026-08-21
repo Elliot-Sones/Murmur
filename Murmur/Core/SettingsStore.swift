@@ -34,6 +34,7 @@ final class SettingsStore {
         static let hotkey = "hotkey"
         static let voiceProcessing = "voiceProcessingEnabled"
         static let cleanup = "cleanupEnabled"
+        static let streamingPreview = "streamingPreviewEnabled"
         static let restoreDelay = "restoreDelayMs"
     }
 
@@ -48,6 +49,9 @@ final class SettingsStore {
     var cleanupEnabled: Bool {
         didSet { defaults.set(cleanupEnabled, forKey: Key.cleanup) }
     }
+    var streamingPreviewEnabled: Bool {
+        didSet { defaults.set(streamingPreviewEnabled, forKey: Key.streamingPreview) }
+    }
     var restoreDelayMs: Int {
         didSet { defaults.set(restoreDelayMs, forKey: Key.restoreDelay) }
     }
@@ -59,6 +63,7 @@ final class SettingsStore {
         // records silence (all-zero buffers).
         voiceProcessingEnabled = defaults.object(forKey: Key.voiceProcessing) as? Bool ?? false
         cleanupEnabled = defaults.object(forKey: Key.cleanup) as? Bool ?? true
+        streamingPreviewEnabled = defaults.object(forKey: Key.streamingPreview) as? Bool ?? true
         restoreDelayMs = defaults.object(forKey: Key.restoreDelay) as? Int ?? 250
     }
 }

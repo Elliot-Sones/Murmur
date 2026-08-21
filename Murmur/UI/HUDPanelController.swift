@@ -44,7 +44,7 @@ final class HUDPanelController {
             panel = newPanel
         }
         guard let panel, let screen = NSScreen.main else { return }
-        let size = NSSize(width: 300, height: 64)
+        let size = NSSize(width: 360, height: 96)
         let origin = NSPoint(
             x: screen.visibleFrame.midX - size.width / 2,
             y: screen.visibleFrame.minY + 96

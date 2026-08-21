@@ -52,6 +52,11 @@ final class AudioRecorder: @unchecked Sendable {
         return lock.withLock { samples }
     }
 
+    /// Copy of the samples accumulated so far; safe to call while recording.
+    func snapshotSamples() -> [Float] {
+        lock.withLock { samples }
+    }
+
     private func process(buffer: AVAudioPCMBuffer) {
         if let channel = buffer.floatChannelData?[0], buffer.frameLength > 0 {
             var sum: Float = 0

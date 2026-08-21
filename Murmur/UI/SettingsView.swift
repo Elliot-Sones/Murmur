@@ -40,6 +40,11 @@ private struct GeneralSettingsTab: View {
                 set: { settings.cleanupEnabled = $0 }
             ))
 
+            Toggle("Live preview in HUD while dictating", isOn: Binding(
+                get: { settings.streamingPreviewEnabled },
+                set: { settings.streamingPreviewEnabled = $0 }
+            ))
+
             Stepper(
                 "Clipboard restore delay: \(settings.restoreDelayMs) ms",
                 value: Binding(
