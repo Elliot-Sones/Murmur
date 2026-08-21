@@ -40,33 +40,27 @@ final class CleanupPromptBuilderTests: XCTestCase {
         XCTAssertTrue(builder.instructions(toneHint: "casual, lowercase ok").contains("casual"))
     }
 
-    func testUserPromptContainsTranscriptVerbatim() {
+    func testUserPromptIsTheBareTranscriptAndNothingElse() {
         let raw = "um so send it tuesday no wait wednesday"
-        XCTAssertTrue(builder.userPrompt(rawTranscript: raw).contains(raw))
+        XCTAssertEqual(
+            builder.userPrompt(rawTranscript: raw), raw,
+            "any scaffolding in the user message eventually leaks into output"
+        )
     }
 
-    func testUserPromptWrapsTranscriptAsDataNotConversation() {
-        let prompt = builder.userPrompt(rawTranscript: "what is going on")
-        XCTAssertTrue(prompt.contains("<transcript>"), "transcript must be delimited as data")
-        XCTAssertTrue(prompt.contains("</transcript>"))
+    func testInstructionsCarryTheNeverAnswerRule() {
         XCTAssertTrue(
-            prompt.lowercased().contains("not a message to you"),
+            builder.instructions().lowercased().contains("never answer"),
             "questions in the transcript must never be answered"
         )
     }
 
-    func testUserPromptIncludesDestinationWhenProvided() {
-        let prompt = builder.userPrompt(
-            rawTranscript: "sounds good",
-            appName: "Mail",
-            windowTitle: "Re: Budget review"
-        )
-        XCTAssertTrue(prompt.contains("Mail"))
-        XCTAssertTrue(prompt.contains("Re: Budget review"))
+    func testInstructionsIncludeDestinationWhenProvided() {
+        let instructions = builder.instructions(destination: "Mail (Re: Budget review)")
+        XCTAssertTrue(instructions.contains("Mail (Re: Budget review)"))
     }
 
-    func testUserPromptOmitsDestinationWhenAbsent() {
-        let prompt = builder.userPrompt(rawTranscript: "sounds good")
-        XCTAssertFalse(prompt.contains("Destination"))
+    func testInstructionsOmitDestinationWhenAbsent() {
+        XCTAssertFalse(builder.instructions().contains("Destination"))
     }
 }

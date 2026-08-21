@@ -19,6 +19,13 @@ enum CleanupOutputSanitizer {
         text = stripCodeFences(text)
         text = stripPreambleLine(text, rawTranscript: rawTranscript)
         text = stripWrappingQuotes(text)
+        if enforceWordOverlap {
+            // ASR never produces literal prompt delimiters; only an echoing
+            // model does. Rewrite selections may contain them legitimately.
+            text = text
+                .replacingOccurrences(of: "<transcript>", with: "")
+                .replacingOccurrences(of: "</transcript>", with: "")
+        }
         let result = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !result.isEmpty else { return rawTranscript }
         if enforceWordOverlap, isOffScript(result, rawTranscript: rawTranscript) {

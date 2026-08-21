@@ -27,16 +27,24 @@ final class OllamaCleanup: CleanupService {
         var request = URLRequest(url: OllamaAPI.baseURL.appendingPathComponent("api/chat"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // Destination context rides in the instructions: bigger Ollama models
+        // use it for register without echoing it, and the small Apple model
+        // (which echoes user-message scaffolding) never sees it at all.
+        var destination: String?
+        if let appName = context.appName, !appName.isEmpty {
+            destination = appName
+            if let windowTitle = context.windowTitle, !windowTitle.isEmpty {
+                destination = "\(appName) (\(windowTitle))"
+            }
+        }
         request.httpBody = OllamaAPI.chatRequestBody(
             model: model,
             instructions: builder.instructions(
-                dictionary: context.dictionary, toneHint: context.toneHint
+                dictionary: context.dictionary,
+                toneHint: context.toneHint,
+                destination: destination
             ),
-            prompt: builder.userPrompt(
-                rawTranscript: trimmed,
-                appName: context.appName,
-                windowTitle: context.windowTitle
-            )
+            prompt: builder.userPrompt(rawTranscript: trimmed)
         )
 
         do {

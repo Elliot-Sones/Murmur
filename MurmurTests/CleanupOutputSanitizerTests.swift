@@ -95,6 +95,30 @@ final class CleanupOutputSanitizerTests: XCTestCase {
         )
     }
 
+    func testLiteralTranscriptTagsAreStrippedFromCleanupOutput() {
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(
+                "He added the code.<transcript>\nMore words.\n</transcript>",
+                rawTranscript: "he added the code more words"
+            ),
+            "He added the code.\nMore words.",
+            "the model must not be able to echo prompt delimiters into pasted text"
+        )
+    }
+
+    func testTagStrippingIsSkippedOnTheRewritePath() {
+        let selection = "keep <transcript> markers in code"
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(
+                "keep <transcript> markers in code",
+                rawTranscript: selection,
+                enforceWordOverlap: false
+            ),
+            selection,
+            "selected code being rewritten may legitimately contain such tags"
+        )
+    }
+
     func testEmptyAfterSanitizingFallsBackToRaw() {
         XCTAssertEqual(
             CleanupOutputSanitizer.sanitize(
