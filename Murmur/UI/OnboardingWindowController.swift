@@ -16,6 +16,9 @@ final class OnboardingWindowController {
             // Windows created during menu-bar tracking inherit an elevated
             // level and float over other apps; pin to normal.
             newWindow.level = .normal
+            // Come to the user's current Space instead of yanking them to
+            // the Space where the window last lived.
+            newWindow.collectionBehavior = [.moveToActiveSpace]
             newWindow.center()
             window = newWindow
         }

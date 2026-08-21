@@ -150,61 +150,72 @@ private struct DictionarySettingsTab: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Names and jargon the cleanup model should spell exactly like this.")
-                .foregroundStyle(.secondary)
-            HStack {
-                TextField("Add a word or name", text: $newWord)
-                    .onSubmit(addWord)
-                Button("Add", action: addWord)
-                    .disabled(newWord.trimmingCharacters(in: .whitespaces).isEmpty)
+        Form {
+            Section {
+                HStack {
+                    TextField("Add a word or name", text: $newWord)
+                        .onSubmit(addWord)
+                    Button("Add", action: addWord)
+                        .disabled(newWord.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            } footer: {
+                Text("Names and jargon the cleanup model should spell exactly like this.")
             }
 
             let suggested = suggestions
             if !suggested.isEmpty {
-                Text("Suggested from your dictations")
-                    .font(.headline)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
-                        ForEach(suggested, id: \.self) { word in
-                            HStack(spacing: 4) {
-                                Button(word) { dictionary.add(word) }
-                                    .help("Add \"\(word)\" to the dictionary")
-                                Button {
-                                    dictionary.dismissSuggestion(word)
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundStyle(.secondary)
+                Section("Suggested from your dictations") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack {
+                            ForEach(suggested, id: \.self) { word in
+                                HStack(spacing: 4) {
+                                    Button(word) { dictionary.add(word) }
+                                        .help("Add \"\(word)\" to the dictionary")
+                                    Button {
+                                        dictionary.dismissSuggestion(word)
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("Dismiss this suggestion")
+                                    .accessibilityLabel("Dismiss suggestion \(word)")
                                 }
-                                .buttonStyle(.borderless)
-                                .help("Dismiss this suggestion")
-                                .accessibilityLabel("Dismiss suggestion \(word)")
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.quaternary, in: Capsule())
                             }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.quaternary, in: Capsule())
                         }
                     }
                 }
             }
 
-            List(dictionary.words, id: \.self) { word in
-                HStack {
-                    Text(word)
-                    Spacer()
-                    Button(role: .destructive) {
-                        dictionary.remove(word)
-                    } label: {
-                        Image(systemName: "trash")
+            Section("Words") {
+                if dictionary.words.isEmpty {
+                    ContentUnavailableView(
+                        "Dictionary is empty",
+                        systemImage: "character.book.closed",
+                        description: Text("Add names or jargon above, or accept a suggestion after you dictate for a while.")
+                    )
+                } else {
+                    ForEach(dictionary.words, id: \.self) { word in
+                        HStack {
+                            Text(word)
+                            Spacer()
+                            Button(role: .destructive) {
+                                dictionary.remove(word)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Remove from dictionary")
+                            .accessibilityLabel("Remove \(word)")
+                        }
                     }
-                    .buttonStyle(.borderless)
-                    .help("Remove from dictionary")
-                    .accessibilityLabel("Remove \(word)")
                 }
             }
-            .frame(minHeight: 160)
         }
-        .padding(20)
+        .formStyle(.grouped)
     }
 
     private func addWord() {
@@ -228,30 +239,42 @@ private struct AppProfilesSettingsTab: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Per-app dictation behavior: tone hint, raw mode, extra vocabulary.")
-                .foregroundStyle(.secondary)
-            HStack {
-                Picker("App", selection: $selectedApp) {
-                    Text("Choose…").tag("")
-                    ForEach(runningApps, id: \.bundleId) { app in
-                        Text(app.name).tag(app.bundleId)
+        Form {
+            Section {
+                HStack {
+                    Picker("App", selection: $selectedApp) {
+                        Text("Choose…").tag("")
+                        ForEach(runningApps, id: \.bundleId) { app in
+                            Text(app.name).tag(app.bundleId)
+                        }
+                    }
+                    Button("Add Profile") {
+                        guard !selectedApp.isEmpty else { return }
+                        let name = runningApps.first { $0.bundleId == selectedApp }?.name ?? selectedApp
+                        profiles.upsert(AppProfile(bundleId: selectedApp, appName: name))
+                        selectedApp = ""
+                    }
+                    .disabled(selectedApp.isEmpty)
+                }
+            } footer: {
+                Text("Per-app dictation behavior: tone hint, raw mode, extra vocabulary.")
+            }
+
+            Section("Profiles") {
+                if profiles.profiles.isEmpty {
+                    ContentUnavailableView(
+                        "No app profiles yet",
+                        systemImage: "app.badge",
+                        description: Text("Pick a running app above to give it its own tone, raw mode, or vocabulary. Apps without a profile just use your defaults.")
+                    )
+                } else {
+                    ForEach(profiles.profiles) { profile in
+                        ProfileRow(profile: profile)
                     }
                 }
-                Button("Add Profile") {
-                    guard !selectedApp.isEmpty else { return }
-                    let name = runningApps.first { $0.bundleId == selectedApp }?.name ?? selectedApp
-                    profiles.upsert(AppProfile(bundleId: selectedApp, appName: name))
-                    selectedApp = ""
-                }
-                .disabled(selectedApp.isEmpty)
             }
-            List(profiles.profiles) { profile in
-                ProfileRow(profile: profile)
-            }
-            .frame(minHeight: 200)
         }
-        .padding(20)
+        .formStyle(.grouped)
     }
 }
 
