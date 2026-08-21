@@ -12,6 +12,18 @@ final class CleanupPromptBuilderTests: XCTestCase {
             instructions.lowercased().contains("output only"),
             "must forbid commentary so answers never replace the transcript"
         )
+        XCTAssertTrue(
+            instructions.lowercased().contains("fewest edits"),
+            "must demand minimal editing so the speaker's words survive"
+        )
+    }
+
+    func testToneHintIsScopedToPunctuationAndCasingNotRewording() {
+        let instructions = builder.instructions(toneHint: "very casual")
+        XCTAssertTrue(
+            instructions.lowercased().contains("never reword"),
+            "tone must not license paraphrasing"
+        )
     }
 
     func testInstructionsIncludeDictionaryWordsWhenProvided() {
