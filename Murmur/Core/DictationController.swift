@@ -16,6 +16,11 @@ final class DictationController {
         case notice(String)
     }
 
+    enum Mode: Equatable {
+        case insert
+        case command
+    }
+
     static let shared = DictationController()
 
     @ObservationIgnored private let log = Logger(subsystem: "com.elliot.Murmur", category: "dictation")
@@ -27,6 +32,7 @@ final class DictationController {
         }
     }
     var audioLevel: Float = 0
+    private(set) var mode: Mode = .insert
     private(set) var previewText = ""
     private(set) var lastLatencyMs: Int?
     private(set) var lastRun: DictationRunStats?
@@ -37,13 +43,15 @@ final class DictationController {
     @ObservationIgnored private let cleanup = FoundationModelsCleanup()
     @ObservationIgnored private let ollamaCleanup = OllamaCleanup()
     @ObservationIgnored private let rawCleanup = RawPassthroughCleanup()
+    @ObservationIgnored private let rewriter = Rewriter()
     @ObservationIgnored private let inserter = TextInserter()
     @ObservationIgnored private let signposter = OSSignposter(
         subsystem: "com.elliot.Murmur", category: "dictation"
     )
 
     private var recordingStartedAt: ContinuousClock.Instant?
-    private var targetApp: (bundleId: String?, name: String?) = (nil, nil)
+    private var targetApp = ContextProvider.Target()
+    private var commandSelection: String?
     private let minimumUtterance: Duration = .milliseconds(300)
     private let maximumUtterance: Duration = .seconds(300)
     private var maxDurationTask: Task<Void, Never>?
@@ -71,7 +79,7 @@ final class DictationController {
         cleanup.prewarm(context: CleanupContext(dictionary: DictionaryStore.shared.words))
     }
 
-    func beginDictation() {
+    func beginDictation(mode requestedMode: Mode = .insert) {
         switch state {
         case .idle, .notice, .preparing: break
         default: return
@@ -97,6 +105,25 @@ final class DictationController {
         case .granted:
             break
         }
+
+        if requestedMode == .command {
+            Task {
+                guard let selection = await SelectionCapturer.capture(),
+                    !selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                else {
+                    state = .notice("Select some text first, then hold the command key.")
+                    autoDismissNotice()
+                    return
+                }
+                commandSelection = selection
+                startCapture(mode: .command)
+            }
+            return
+        }
+        startCapture(mode: .insert)
+    }
+
+    private func startCapture(mode newMode: Mode) {
         recorder.onLevel = { level in
             Task { @MainActor in DictationController.shared.audioLevel = level }
         }
@@ -107,7 +134,8 @@ final class DictationController {
             autoDismissNotice()
             return
         }
-        targetApp = ContextProvider.frontmostApp()
+        mode = newMode
+        targetApp = ContextProvider.frontmostTarget()
         recordingStartedAt = ContinuousClock.now
         previewText = ""
         state = .recording
@@ -144,9 +172,76 @@ final class DictationController {
         state = .transcribing
         let releasedAt = ContinuousClock.now
 
+        if mode == .command, let selection = commandSelection {
+            commandSelection = nil
+            Task {
+                await runCommandPipeline(
+                    samples: samples, selection: selection, releasedAt: releasedAt
+                )
+            }
+            return
+        }
         Task {
             await runPipeline(samples: samples, releasedAt: releasedAt)
         }
+    }
+
+    private func runCommandPipeline(
+        samples: [Float], selection: String, releasedAt: ContinuousClock.Instant
+    ) async {
+        let instruction: String
+        do {
+            instruction = try await transcriber.transcribe(samples)
+        } catch {
+            state = .notice("Could not hear the instruction. Nothing was changed.")
+            autoDismissNotice()
+            return
+        }
+        guard !instruction.isEmpty else {
+            state = .notice("Heard no instruction. Nothing was changed.")
+            autoDismissNotice()
+            return
+        }
+        log.info("command instruction: \(instruction.count) chars, selection: \(selection.count) chars")
+
+        guard let rewritten = await rewriter.rewrite(
+            selection: selection, instruction: instruction
+        ) else {
+            state = .notice("Rewrite failed. Nothing was changed.")
+            autoDismissNotice()
+            return
+        }
+
+        state = .inserting
+        await inserter.insert(rewritten, restoreDelayMs: SettingsStore.shared.restoreDelayMs)
+
+        let elapsed = releasedAt.duration(to: ContinuousClock.now)
+        let stats = DictationRunStats(
+            audioMs: samples.count * 1000 / 16_000,
+            transcribeMs: 0,
+            cleanupMs: Self.milliseconds(elapsed),
+            pasteMs: 0,
+            characters: rewritten.count,
+            engine: rewriter.lastOutcome
+        )
+        lastRun = stats
+        lastLatencyMs = stats.totalMs
+        SoundCue.inserted()
+        HistoryStore.shared.add(
+            DictationRecord(
+                date: Date(),
+                appBundleId: targetApp.bundleId,
+                appName: targetApp.name,
+                rawTranscript: instruction,
+                cleanedText: rewritten,
+                audioMs: stats.audioMs,
+                totalMs: stats.totalMs,
+                engine: rewriter.lastOutcome,
+                mode: "command"
+            )
+        )
+        log.notice("command rewrite done in \(stats.totalMs) ms via \(self.rewriter.lastOutcome, privacy: .public)")
+        state = .idle
     }
 
     func cancelDictation() {
@@ -217,7 +312,9 @@ final class DictationController {
         let profile = ProfileStore.shared.resolve(bundleId: targetApp.bundleId)
         var context = CleanupContext(
             dictionary: DictionaryStore.shared.words,
-            toneHint: profile?.toneHint
+            toneHint: profile?.toneHint,
+            appName: targetApp.name,
+            windowTitle: targetApp.windowTitle
         )
         if let vocab = profile?.vocab, !vocab.isEmpty {
             context.dictionary += vocab

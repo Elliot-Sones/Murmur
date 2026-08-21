@@ -28,13 +28,13 @@ struct HUDView: View {
         switch controller.state {
         case .recording:
             LevelMeter(level: controller.audioLevel)
-            Text("Listening")
+            Text(controller.mode == .command ? "Command: speak an instruction" : "Listening")
             Text("Esc cancels")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         case .transcribing:
             ProgressView().controlSize(.small)
-            Text("Transcribing")
+            Text(controller.mode == .command ? "Rewriting" : "Transcribing")
         case .inserting:
             Image(systemName: "text.cursor")
             Text("Inserting")

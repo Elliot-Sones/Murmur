@@ -58,6 +58,13 @@ private struct HistoryRow: View {
                         .padding(.vertical, 1)
                         .background(.quaternary, in: Capsule())
                 }
+                if record.mode == "command" {
+                    Text("rewrite")
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(.tint.opacity(0.2), in: Capsule())
+                }
                 Text("\(record.totalMs) ms")
                     .font(.caption)
                     .foregroundStyle(.tertiary)

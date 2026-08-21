@@ -110,4 +110,53 @@ final class HotkeyEventClassifierTests: XCTestCase {
             )
         )
     }
+
+    func testCommandRightOptionFlagTransitions() {
+        XCTAssertEqual(
+            HotkeyEventClassifier.classifyCommand(
+                type: .flagsChanged, keyCode: 61, flags: .maskAlternate, choice: .rightOption
+            ),
+            .hotkeyDown
+        )
+        XCTAssertEqual(
+            HotkeyEventClassifier.classifyCommand(
+                type: .flagsChanged, keyCode: 61, flags: [], choice: .rightOption
+            ),
+            .hotkeyUp
+        )
+    }
+
+    func testCommandLeftOptionIsIgnored() {
+        XCTAssertNil(
+            HotkeyEventClassifier.classifyCommand(
+                type: .flagsChanged, keyCode: 58, flags: .maskAlternate, choice: .rightOption
+            )
+        )
+    }
+
+    func testCommandControlOCombo() {
+        XCTAssertEqual(
+            HotkeyEventClassifier.classifyCommand(
+                type: .keyDown, keyCode: 31, flags: .maskControl, choice: .controlO
+            ),
+            .hotkeyDown
+        )
+        XCTAssertEqual(
+            HotkeyEventClassifier.classifyCommand(
+                type: .keyUp, keyCode: 31, flags: [], choice: .controlO
+            ),
+            .hotkeyUp
+        )
+        XCTAssertNil(
+            HotkeyEventClassifier.classifyCommand(
+                type: .keyDown, keyCode: 31, flags: .maskControl, isAutorepeat: true, choice: .controlO
+            )
+        )
+        XCTAssertNil(
+            HotkeyEventClassifier.classifyCommand(
+                type: .keyDown, keyCode: 31, flags: [], choice: .controlO
+            ),
+            "plain o must not trigger command mode"
+        )
+    }
 }

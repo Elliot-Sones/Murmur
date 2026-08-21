@@ -39,6 +39,6 @@ If permissions break after a rebuild, reset them and grant again:
 - M0 (done): menu bar shell, permissions onboarding
 - M1 (done): core dictation loop (Parakeet STT, on-device cleanup, paste at cursor)
 - M2 (done): personal dictionary, history window, per-app profiles, live HUD preview, Ollama cleanup backend, sound cues, launch at login, `make bench` accuracy harness (see `bench/README.md`)
-- M3 (next): command mode, context awareness, auto-learn dictionary
+- M3 (done): command mode (hold Right Option with text selected, speak an instruction), destination-aware cleanup (app + window title), dictionary suggestions learned from history
 
 See `docs/spec.md` for the full design.

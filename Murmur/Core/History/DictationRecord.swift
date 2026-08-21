@@ -12,6 +12,7 @@ final class DictationRecord {
     var audioMs: Int
     var totalMs: Int
     var engine: String
+    var mode: String = "insert"
 
     init(
         date: Date,
@@ -21,7 +22,8 @@ final class DictationRecord {
         cleanedText: String,
         audioMs: Int,
         totalMs: Int,
-        engine: String
+        engine: String,
+        mode: String = "insert"
     ) {
         self.date = date
         self.appBundleId = appBundleId
@@ -31,5 +33,6 @@ final class DictationRecord {
         self.audioMs = audioMs
         self.totalMs = totalMs
         self.engine = engine
+        self.mode = mode
     }
 }

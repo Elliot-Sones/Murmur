@@ -10,8 +10,33 @@ enum ClassifiedKeyEvent: Equatable {
 enum HotkeyEventClassifier {
     static let fnKeyCode: Int64 = 63
     static let rightCommandKeyCode: Int64 = 54
+    static let rightOptionKeyCode: Int64 = 61
     static let escapeKeyCode: Int64 = 53
     static let iKeyCode: Int64 = 34
+    static let oKeyCode: Int64 = 31
+
+    /// Classifies events for the command-mode hotkey. Escape is handled by
+    /// `classify`; this only reports the command key itself.
+    static func classifyCommand(
+        type: CGEventType,
+        keyCode: Int64,
+        flags: CGEventFlags,
+        isAutorepeat: Bool = false,
+        choice: CommandHotkeyChoice
+    ) -> ClassifiedKeyEvent? {
+        switch choice {
+        case .rightOption:
+            guard type == .flagsChanged, keyCode == rightOptionKeyCode else { return nil }
+            return flags.contains(.maskAlternate) ? .hotkeyDown : .hotkeyUp
+        case .controlO:
+            guard keyCode == oKeyCode, !isAutorepeat else { return nil }
+            switch type {
+            case .keyDown where flags.contains(.maskControl): return .hotkeyDown
+            case .keyUp: return .hotkeyUp
+            default: return nil
+            }
+        }
+    }
 
     static func classify(
         type: CGEventType,

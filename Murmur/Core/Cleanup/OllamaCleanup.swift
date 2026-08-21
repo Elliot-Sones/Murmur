@@ -32,7 +32,11 @@ final class OllamaCleanup: CleanupService {
             instructions: builder.instructions(
                 dictionary: context.dictionary, toneHint: context.toneHint
             ),
-            prompt: builder.userPrompt(rawTranscript: trimmed)
+            prompt: builder.userPrompt(
+                rawTranscript: trimmed,
+                appName: context.appName,
+                windowTitle: context.windowTitle
+            )
         )
 
         do {

@@ -38,6 +38,16 @@ final class DictionaryStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testDismissedSuggestionsPersistAcrossInstances() {
+        let first = DictionaryStore(directory: directory)
+        first.dismissSuggestion("Zephyr")
+        first.dismissSuggestion("Zephyr")
+
+        let second = DictionaryStore(directory: directory)
+        XCTAssertEqual(second.dismissedSuggestions, ["Zephyr"])
+    }
+
+    @MainActor
     func testRemoveAndPersistAcrossInstances() {
         let first = DictionaryStore(directory: directory)
         first.add("Trajekt")

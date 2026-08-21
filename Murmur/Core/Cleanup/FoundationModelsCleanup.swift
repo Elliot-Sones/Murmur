@@ -47,7 +47,11 @@ final class FoundationModelsCleanup: CleanupService {
             return raw
         }
 
-        let prompt = builder.userPrompt(rawTranscript: trimmed)
+        let prompt = builder.userPrompt(
+            rawTranscript: trimmed,
+            appName: context.appName,
+            windowTitle: context.windowTitle
+        )
         let responseTask = Task { @MainActor in
             try await session.respond(to: prompt).content
         }

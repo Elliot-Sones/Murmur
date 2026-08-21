@@ -32,6 +32,16 @@ private struct GeneralSettingsTab: View {
             }
             .pickerStyle(.radioGroup)
 
+            Picker("Command key (rewrite selection)", selection: Binding(
+                get: { settings.commandHotkey },
+                set: { settings.commandHotkey = $0 }
+            )) {
+                ForEach(CommandHotkeyChoice.allCases) { choice in
+                    Text(choice.displayName).tag(choice)
+                }
+            }
+            .pickerStyle(.radioGroup)
+
             Toggle("Voice processing (experimental, may record silence)", isOn: Binding(
                 get: { settings.voiceProcessingEnabled },
                 set: { settings.voiceProcessingEnabled = $0 }
@@ -118,7 +128,17 @@ private struct GeneralSettingsTab: View {
 
 private struct DictionarySettingsTab: View {
     private var dictionary: DictionaryStore { .shared }
+    private var history: HistoryStore { .shared }
     @State private var newWord = ""
+
+    private var suggestions: [String] {
+        let _ = history.revision
+        let texts = history.records(matching: "").prefix(200).map(\.cleanedText)
+        return DictionaryLearner.suggestions(
+            from: Array(texts),
+            knownWords: dictionary.words + dictionary.dismissedSuggestions
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -130,6 +150,32 @@ private struct DictionarySettingsTab: View {
                 Button("Add", action: addWord)
                     .disabled(newWord.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+
+            let suggested = suggestions
+            if !suggested.isEmpty {
+                Text("Suggested from your dictations")
+                    .font(.headline)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack {
+                        ForEach(suggested, id: \.self) { word in
+                            HStack(spacing: 4) {
+                                Button(word) { dictionary.add(word) }
+                                Button {
+                                    dictionary.dismissSuggestion(word)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.quaternary, in: Capsule())
+                        }
+                    }
+                }
+            }
+
             List(dictionary.words, id: \.self) { word in
                 HStack {
                     Text(word)
@@ -142,7 +188,7 @@ private struct DictionarySettingsTab: View {
                     .buttonStyle(.borderless)
                 }
             }
-            .frame(minHeight: 200)
+            .frame(minHeight: 160)
         }
         .padding(20)
     }

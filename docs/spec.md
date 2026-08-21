@@ -83,7 +83,7 @@ Cleanup prompt (FoundationModels instructions): fix punctuation and capitalizati
 - Launch at login (SMAppService), sound cues, Ollama backend option in Settings (model picker from `/api/tags`).
 - STT engine bench harness: ~20 fixture recordings across real conditions (quiet desk Mac mic, AirPods, noisy cafe) with hand-corrected references. CLI target runs every `TranscriptionService` engine and reports WER and latency. The harness compares Parakeet v2 and v3 (`make bench BENCH_FLAGS=--v3`). WhisperKit large-v3-turbo deferred: add it behind `TranscriptionService` only if the personal-fixture numbers show Parakeet struggling.
 
-### M3: Full replica features
+### M3: Full replica features (done 2026-08-21)
 - Command mode: hold Right Option with text selected, speak an instruction, selection is rewritten in place. Selection capture via AX `selectedText`, fallback Cmd+C with restore. Rewrites default to Ollama (bigger model), FoundationModels fallback.
 - Context awareness: frontmost app + AX window title fed to cleanup prompt. No screenshots in v1.
 - Auto-learn dictionary: track repeated out-of-vocabulary proper nouns from history, surface "add to dictionary?" suggestions in Settings.

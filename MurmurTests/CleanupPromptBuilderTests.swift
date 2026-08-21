@@ -32,4 +32,19 @@ final class CleanupPromptBuilderTests: XCTestCase {
         let raw = "um so send it tuesday no wait wednesday"
         XCTAssertTrue(builder.userPrompt(rawTranscript: raw).contains(raw))
     }
+
+    func testUserPromptIncludesDestinationWhenProvided() {
+        let prompt = builder.userPrompt(
+            rawTranscript: "sounds good",
+            appName: "Mail",
+            windowTitle: "Re: Budget review"
+        )
+        XCTAssertTrue(prompt.contains("Mail"))
+        XCTAssertTrue(prompt.contains("Re: Budget review"))
+    }
+
+    func testUserPromptOmitsDestinationWhenAbsent() {
+        let prompt = builder.userPrompt(rawTranscript: "sounds good")
+        XCTAssertFalse(prompt.contains("Destination"))
+    }
 }

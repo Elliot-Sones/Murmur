@@ -13,6 +13,7 @@ final class HotkeyService {
 
     private let log = Logger(subsystem: "com.elliot.Murmur", category: "hotkey")
     private var machine = HotkeyStateMachine()
+    private var commandMachine = HotkeyStateMachine()
     private var tap: CFMachPort?
     private var retryTimer: Timer?
     private var tickTimer: Timer?
@@ -70,67 +71,99 @@ final class HotkeyService {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let isAutorepeat = event.getIntegerValueField(.keyboardEventAutorepeat) == 1
         let choice = SettingsStore.shared.hotkey
+        let commandChoice = SettingsStore.shared.commandHotkey
+        let now = ProcessInfo.processInfo.systemUptime
 
-        guard let classified = HotkeyEventClassifier.classify(
-            type: type,
-            keyCode: keyCode,
-            flags: event.flags,
-            isAutorepeat: isAutorepeat,
-            choice: choice
-        ) else {
-            // While dictating with Control+I, swallow I autorepeats and strays
-            // so they do not type into the focused app.
-            if choice == .controlI, keyCode == HotkeyEventClassifier.iKeyCode, machine.isCapturing {
+        // Escape cancels whichever machine is currently capturing.
+        if type == .keyDown, keyCode == HotkeyEventClassifier.escapeKeyCode {
+            if machine.isCapturing {
+                dispatch(machine.handle(.escapeDown), mode: .insert)
+                return true
+            }
+            if commandMachine.isCapturing {
+                dispatch(commandMachine.handle(.escapeDown), mode: .command)
                 return true
             }
             return false
         }
 
-        let wasCapturing = machine.isCapturing
-        let now = ProcessInfo.processInfo.systemUptime
-        let actions: [HotkeyStateMachine.Action]
-        switch classified {
-        case .hotkeyDown:
-            actions = machine.handle(.hotkeyDown(now))
-        case .hotkeyUp:
-            actions = machine.handle(.hotkeyUp(now))
-            scheduleTick()
-        case .escape:
-            guard wasCapturing else { return false }
-            actions = machine.handle(.escapeDown)
-        }
-        if !actions.isEmpty || machine.isCapturing {
-            log.info("\(String(describing: classified), privacy: .public) -> \(String(describing: actions), privacy: .public)")
-        }
-        dispatch(actions)
-
-        switch classified {
-        case .escape:
-            return true
-        case .hotkeyDown, .hotkeyUp:
-            // Combo keys are swallowed whenever they interact with a capture;
-            // an idle I key-up stays untouched so normal typing is unaffected.
+        if let classified = HotkeyEventClassifier.classify(
+            type: type, keyCode: keyCode, flags: event.flags,
+            isAutorepeat: isAutorepeat, choice: choice
+        ), classified != .escape {
+            guard !commandMachine.isCapturing else { return false }
+            let wasCapturing = machine.isCapturing
+            let actions: [HotkeyStateMachine.Action]
+            switch classified {
+            case .hotkeyDown:
+                actions = machine.handle(.hotkeyDown(now))
+            case .hotkeyUp:
+                actions = machine.handle(.hotkeyUp(now))
+                scheduleTick()
+            case .escape:
+                return false
+            }
+            if !actions.isEmpty || machine.isCapturing {
+                log.info("dictate \(String(describing: classified), privacy: .public) -> \(String(describing: actions), privacy: .public)")
+            }
+            dispatch(actions, mode: .insert)
             return choice == .controlI && (wasCapturing || machine.isCapturing || !actions.isEmpty)
         }
+
+        if let classified = HotkeyEventClassifier.classifyCommand(
+            type: type, keyCode: keyCode, flags: event.flags,
+            isAutorepeat: isAutorepeat, choice: commandChoice
+        ) {
+            guard !machine.isCapturing else { return false }
+            let wasCapturing = commandMachine.isCapturing
+            let actions: [HotkeyStateMachine.Action]
+            switch classified {
+            case .hotkeyDown:
+                actions = commandMachine.handle(.hotkeyDown(now))
+            case .hotkeyUp:
+                actions = commandMachine.handle(.hotkeyUp(now))
+                scheduleTick()
+            case .escape:
+                return false
+            }
+            if !actions.isEmpty || commandMachine.isCapturing {
+                log.info("command \(String(describing: classified), privacy: .public) -> \(String(describing: actions), privacy: .public)")
+            }
+            dispatch(actions, mode: .command)
+            return commandChoice == .controlO
+                && (wasCapturing || commandMachine.isCapturing || !actions.isEmpty)
+        }
+
+        // Swallow combo-key autorepeats and strays while their capture runs
+        // so they do not type into the focused app.
+        if choice == .controlI, keyCode == HotkeyEventClassifier.iKeyCode, machine.isCapturing {
+            return true
+        }
+        if commandChoice == .controlO, keyCode == HotkeyEventClassifier.oKeyCode,
+            commandMachine.isCapturing {
+            return true
+        }
+        return false
     }
 
-    /// A short tap parks the machine in pendingDecision; the tick resolves it
+    /// A short tap parks a machine in pendingDecision; the tick resolves it
     /// (discard) when no second tap arrives inside the double-tap window.
     private func scheduleTick() {
         tickTimer?.invalidate()
         tickTimer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: false) { _ in
             Task { @MainActor in
                 let service = HotkeyService.shared
-                let actions = service.machine.handle(.tick(ProcessInfo.processInfo.systemUptime))
-                service.dispatch(actions)
+                let now = ProcessInfo.processInfo.systemUptime
+                service.dispatch(service.machine.handle(.tick(now)), mode: .insert)
+                service.dispatch(service.commandMachine.handle(.tick(now)), mode: .command)
             }
         }
     }
 
-    private func dispatch(_ actions: [HotkeyStateMachine.Action]) {
+    private func dispatch(_ actions: [HotkeyStateMachine.Action], mode: DictationController.Mode) {
         for action in actions {
             switch action {
-            case .startRecording: DictationController.shared.beginDictation()
+            case .startRecording: DictationController.shared.beginDictation(mode: mode)
             case .finishRecording: DictationController.shared.finishDictation()
             case .cancelRecording: DictationController.shared.cancelDictation()
             }

@@ -24,7 +24,20 @@ struct CleanupPromptBuilder {
         return parts.joined(separator: "\n")
     }
 
-    func userPrompt(rawTranscript: String) -> String {
-        "Transcript:\n\(rawTranscript)"
+    func userPrompt(
+        rawTranscript: String,
+        appName: String? = nil,
+        windowTitle: String? = nil
+    ) -> String {
+        var parts: [String] = []
+        if let appName, !appName.isEmpty {
+            var destination = "Destination: \(appName)"
+            if let windowTitle, !windowTitle.isEmpty {
+                destination += " (\(windowTitle))"
+            }
+            parts.append(destination + ". Match the register that fits there.")
+        }
+        parts.append("Transcript:\n\(rawTranscript)")
+        return parts.joined(separator: "\n")
     }
 }
