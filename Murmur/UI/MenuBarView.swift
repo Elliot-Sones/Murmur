@@ -23,6 +23,7 @@ struct MenuBarView: View {
             set: { settings.cleanupEnabled = $0 }
         ))
         Divider()
+        Button("History…") { HistoryWindowController.shared.show() }
         SettingsLink {
             Text("Settings…")
         }

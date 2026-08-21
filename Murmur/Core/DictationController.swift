@@ -221,6 +221,18 @@ final class DictationController {
         lastRun = stats
         lastLatencyMs = stats.totalMs
         log.notice("run: \(stats.audioSummary, privacy: .public) [\(stats.stageSummary, privacy: .public)] engine: \(engine, privacy: .public)")
+        HistoryStore.shared.add(
+            DictationRecord(
+                date: Date(),
+                appBundleId: targetApp.bundleId,
+                appName: targetApp.name,
+                rawTranscript: raw,
+                cleanedText: cleaned,
+                audioMs: stats.audioMs,
+                totalMs: stats.totalMs,
+                engine: engine
+            )
+        )
         state = .idle
     }
 
