@@ -9,7 +9,10 @@ final class SettingsWindowController {
     static let shared = SettingsWindowController()
     private var window: NSWindow?
 
-    func show() {
+    func show(tab: String? = nil) {
+        if let tab {
+            UserDefaults.standard.set(tab, forKey: "settingsSelectedTab")
+        }
         if window == nil {
             let hosting = NSHostingController(rootView: SettingsView())
             let newWindow = NSWindow(contentViewController: hosting)

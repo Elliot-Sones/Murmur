@@ -16,6 +16,9 @@ struct SettingsView: View {
             AppProfilesSettingsTab()
                 .tabItem { Label("Apps", systemImage: "app.badge") }
                 .tag("apps")
+            HistoryView()
+                .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                .tag("history")
         }
         .frame(width: 560, height: 520)
     }

@@ -23,7 +23,7 @@ struct MenuBarView: View {
             set: { settings.cleanupEnabled = $0 }
         ))
         Divider()
-        Button("History…") { HistoryWindowController.shared.show() }
+        Button("History…") { SettingsWindowController.shared.show(tab: "history") }
         Button("Settings…") { SettingsWindowController.shared.show() }
         Divider()
         Button("Quit Murmur") { NSApp.terminate(nil) }
