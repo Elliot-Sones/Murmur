@@ -75,6 +75,22 @@ final class DictationController {
             autoDismissNotice()
             return
         }
+        let permissions = PermissionsService.shared
+        permissions.refresh()
+        switch permissions.snapshot.microphone {
+        case .notDetermined:
+            permissions.requestMicrophone()
+            state = .notice("Allow microphone access, then dictate again.")
+            autoDismissNotice()
+            return
+        case .denied:
+            state = .notice("Microphone permission is off. Opening System Settings.")
+            autoDismissNotice()
+            SystemSettingsPane.microphone.open()
+            return
+        case .granted:
+            break
+        }
         recorder.onLevel = { level in
             Task { @MainActor in DictationController.shared.audioLevel = level }
         }
@@ -103,6 +119,10 @@ final class DictationController {
         let samples = recorder.stop()
         let startedAt = recordingStartedAt
         recordingStartedAt = nil
+
+        var peak: Float = 0
+        for sample in samples where abs(sample) > peak { peak = abs(sample) }
+        log.info("captured \(samples.count) samples, peak \(peak, format: .fixed(precision: 3))")
 
         guard let startedAt, ContinuousClock.now - startedAt >= minimumUtterance else {
             state = .idle
@@ -147,7 +167,8 @@ final class DictationController {
 
         guard !raw.isEmpty else {
             log.notice("empty transcript, nothing to insert")
-            state = .idle
+            state = .notice("Heard nothing. Check the mic and try again.")
+            autoDismissNotice()
             return
         }
         log.info("transcribed \(raw.count) chars")
