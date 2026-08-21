@@ -21,6 +21,7 @@ targets:
     platform: macOS
     sources:
       - path: Murmur
+      - path: Shared
     dependencies:
       - package: FluidAudio
     info:
@@ -42,3 +43,11 @@ targets:
         GENERATE_INFOPLIST_FILE: true
     dependencies:
       - target: Murmur
+  murmur-bench:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Bench
+      - path: Shared
+    dependencies:
+      - package: FluidAudio

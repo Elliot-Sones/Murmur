@@ -2,3 +2,4 @@
 Murmur.xcodeproj/
 xcuserdata/
 .DS_Store
+bench/fixtures/

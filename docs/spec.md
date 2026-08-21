@@ -75,13 +75,13 @@ Cleanup prompt (FoundationModels instructions): fix punctuation and capitalizati
 - HUD panel: recording level meter + state. Esc cancels.
 - Acceptance: p50 key-release to text under 1 s for utterances under 15 s; works in Slack, Mail, VS Code, Safari text fields; clipboard restored intact.
 
-### M2: Daily-driver polish
+### M2: Daily-driver polish (done 2026-08-21; deviations noted inline)
 - Personal dictionary: manual add/edit list, injected into cleanup prompt. JSON in Application Support.
 - History window: SwiftData records (date, app, raw transcript, cleaned text, duration, mode), search, copy, delete. No audio retained.
 - Per-app profiles: match by bundle id; fields: tone hint, raw mode, custom vocab. Editor in Settings.
-- Streaming preview: `SlidingWindowAsrManager` live partial text in HUD while holding.
+- Streaming preview: implemented as incremental batch re-transcription of the growing buffer every 0.9 s (reuses the loaded v2 engine, no second model download, coherent text every tick). FluidAudio's true streaming managers (EOU/Nemotron variants) need separate models; revisit only if the preview cadence feels slow.
 - Launch at login (SMAppService), sound cues, Ollama backend option in Settings (model picker from `/api/tags`).
-- STT engine bench harness: ~20 fixture recordings across real conditions (quiet desk Mac mic, AirPods, noisy cafe) with hand-corrected references. CLI target runs every `TranscriptionService` engine and reports WER and latency. Optional WhisperKit large-v3-turbo engine; switch defaults (globally or per input device) only if the data says so.
+- STT engine bench harness: ~20 fixture recordings across real conditions (quiet desk Mac mic, AirPods, noisy cafe) with hand-corrected references. CLI target runs every `TranscriptionService` engine and reports WER and latency. The harness compares Parakeet v2 and v3 (`make bench BENCH_FLAGS=--v3`). WhisperKit large-v3-turbo deferred: add it behind `TranscriptionService` only if the personal-fixture numbers show Parakeet struggling.
 
 ### M3: Full replica features
 - Command mode: hold Right Option with text selected, speak an instruction, selection is rewritten in place. Selection capture via AX `selectedText`, fallback Cmd+C with restore. Rewrites default to Ollama (bigger model), FoundationModels fallback.

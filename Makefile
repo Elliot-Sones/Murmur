@@ -1,4 +1,4 @@
-.PHONY: generate build run test install clean
+.PHONY: generate build run test install bench clean
 
 DERIVED := .build
 APP := Murmur
@@ -20,6 +20,10 @@ install: build
 
 test: generate
 	xcodebuild -project $(APP).xcodeproj -scheme $(APP) -configuration Debug -derivedDataPath $(DERIVED) test
+
+bench: generate
+	xcodebuild -project $(APP).xcodeproj -scheme murmur-bench -configuration Debug -derivedDataPath $(DERIVED) -quiet build
+	$(DERIVED)/Build/Products/Debug/murmur-bench bench/fixtures $(BENCH_FLAGS)
 
 clean:
 	rm -rf $(DERIVED) $(APP).xcodeproj
