@@ -62,6 +62,39 @@ final class CleanupOutputSanitizerTests: XCTestCase {
         )
     }
 
+    func testAnswerShapedOutputFallsBackToRaw() {
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(
+                "I don't know what is going on.",
+                rawTranscript: "what is going on"
+            ),
+            "what is going on",
+            "a model that answers the transcript must be discarded"
+        )
+    }
+
+    func testFillerRemovalSurvivesTheOverlapGuard() {
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(
+                "Send the report Wednesday.",
+                rawTranscript: "um send the report uh wednesday"
+            ),
+            "Send the report Wednesday."
+        )
+    }
+
+    func testRewritePathSkipsTheOverlapGuard() {
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(
+                "Entirely different phrasing on purpose.",
+                rawTranscript: "original casual words",
+                enforceWordOverlap: false
+            ),
+            "Entirely different phrasing on purpose.",
+            "command-mode rewrites legitimately change words"
+        )
+    }
+
     func testEmptyAfterSanitizingFallsBackToRaw() {
         XCTAssertEqual(
             CleanupOutputSanitizer.sanitize(

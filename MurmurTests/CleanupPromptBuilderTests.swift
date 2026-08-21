@@ -45,6 +45,16 @@ final class CleanupPromptBuilderTests: XCTestCase {
         XCTAssertTrue(builder.userPrompt(rawTranscript: raw).contains(raw))
     }
 
+    func testUserPromptWrapsTranscriptAsDataNotConversation() {
+        let prompt = builder.userPrompt(rawTranscript: "what is going on")
+        XCTAssertTrue(prompt.contains("<transcript>"), "transcript must be delimited as data")
+        XCTAssertTrue(prompt.contains("</transcript>"))
+        XCTAssertTrue(
+            prompt.lowercased().contains("not a message to you"),
+            "questions in the transcript must never be answered"
+        )
+    }
+
     func testUserPromptIncludesDestinationWhenProvided() {
         let prompt = builder.userPrompt(
             rawTranscript: "sounds good",

@@ -49,7 +49,9 @@ final class Rewriter {
         guard let (data, _) = try? await ollamaSession.data(for: request),
             let content = OllamaAPI.parseChatResponse(data)
         else { return nil }
-        let sanitized = CleanupOutputSanitizer.sanitize(content, rawTranscript: selection)
+        let sanitized = CleanupOutputSanitizer.sanitize(
+            content, rawTranscript: selection, enforceWordOverlap: false
+        )
         return sanitized.isEmpty ? nil : sanitized
     }
 
@@ -68,7 +70,9 @@ final class Rewriter {
         defer { timeoutTask.cancel() }
 
         guard let content = try? await responseTask.value else { return nil }
-        let sanitized = CleanupOutputSanitizer.sanitize(content, rawTranscript: selection)
+        let sanitized = CleanupOutputSanitizer.sanitize(
+            content, rawTranscript: selection, enforceWordOverlap: false
+        )
         return sanitized.isEmpty ? nil : sanitized
     }
 }

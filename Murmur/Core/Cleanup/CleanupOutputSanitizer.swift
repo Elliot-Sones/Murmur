@@ -12,13 +12,30 @@ enum CleanupOutputSanitizer {
         "version", "cleaned", "rewritten", "polished", "transcript", "revised", "updated text",
     ]
 
-    static func sanitize(_ output: String, rawTranscript: String) -> String {
+    static func sanitize(
+        _ output: String, rawTranscript: String, enforceWordOverlap: Bool = true
+    ) -> String {
         var text = output.trimmingCharacters(in: .whitespacesAndNewlines)
         text = stripCodeFences(text)
         text = stripPreambleLine(text, rawTranscript: rawTranscript)
         text = stripWrappingQuotes(text)
         let result = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return result.isEmpty ? rawTranscript : result
+        guard !result.isEmpty else { return rawTranscript }
+        if enforceWordOverlap, isOffScript(result, rawTranscript: rawTranscript) {
+            return rawTranscript
+        }
+        return result
+    }
+
+    /// Cleanup may only remove or fix words, so nearly every output word must
+    /// come from the transcript. A low ratio means the model answered or
+    /// invented instead of cleaning.
+    private static func isOffScript(_ output: String, rawTranscript: String) -> Bool {
+        let spokenWords = Set(WordErrorRate.normalize(rawTranscript))
+        let outputWords = WordErrorRate.normalize(output)
+        guard !spokenWords.isEmpty, !outputWords.isEmpty else { return false }
+        let kept = outputWords.filter { spokenWords.contains($0) }.count
+        return Double(kept) / Double(outputWords.count) < 0.6
     }
 
     private static func stripCodeFences(_ text: String) -> String {
