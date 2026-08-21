@@ -3,11 +3,13 @@ import FoundationModels
 
 /// Cleans transcripts with Apple's on-device model. Falls back to the raw
 /// transcript on unavailability, guardrail refusal, error, or timeout, so the
-/// user's words are never lost.
+/// user's words are never lost. The session is rebuilt when the cleanup
+/// context (dictionary, tone) changes.
 @MainActor
 final class FoundationModelsCleanup: CleanupService {
     private let builder = CleanupPromptBuilder()
     private var session: LanguageModelSession?
+    private var sessionKey: String?
     private let timeout: Duration = .seconds(3)
 
     /// What actually happened on the most recent cleanup call.
@@ -18,21 +20,28 @@ final class FoundationModelsCleanup: CleanupService {
         return false
     }
 
-    func prewarm() {
-        guard Self.isAvailable, session == nil else { return }
-        let fresh = LanguageModelSession(instructions: builder.instructions())
+    func prewarm(context: CleanupContext = CleanupContext()) {
+        guard Self.isAvailable else { return }
+        let key = Self.key(for: context)
+        guard session == nil || sessionKey != key else { return }
+        let fresh = LanguageModelSession(
+            instructions: builder.instructions(
+                dictionary: context.dictionary, toneHint: context.toneHint
+            )
+        )
         fresh.prewarm()
         session = fresh
+        sessionKey = key
     }
 
-    func cleanup(_ raw: String) async -> String {
+    func cleanup(_ raw: String, context: CleanupContext) async -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard Self.isAvailable else {
             lastOutcome = "raw (Apple Intelligence unavailable)"
             return raw
         }
         guard !trimmed.isEmpty else { return raw }
-        if session == nil { prewarm() }
+        prewarm(context: context)
         guard let session else {
             lastOutcome = "raw (no session)"
             return raw
@@ -54,14 +63,23 @@ final class FoundationModelsCleanup: CleanupService {
             lastOutcome = "Apple on-device model"
             return cleaned.isEmpty ? raw : cleaned
         } catch is CancellationError {
-            self.session = nil
+            resetSession()
             lastOutcome = "raw (model timed out)"
             return raw
         } catch {
             // A failed or overflowing session gets rebuilt on the next dictation.
-            self.session = nil
+            resetSession()
             lastOutcome = "raw (model error)"
             return raw
         }
+    }
+
+    private func resetSession() {
+        session = nil
+        sessionKey = nil
+    }
+
+    private static func key(for context: CleanupContext) -> String {
+        context.dictionary.joined(separator: "|") + "§" + (context.toneHint ?? "")
     }
 }

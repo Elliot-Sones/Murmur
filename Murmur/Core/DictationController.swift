@@ -41,6 +41,7 @@ final class DictationController {
     )
 
     private var recordingStartedAt: ContinuousClock.Instant?
+    private var targetApp: (bundleId: String?, name: String?) = (nil, nil)
     private let minimumUtterance: Duration = .milliseconds(300)
     private let maximumUtterance: Duration = .seconds(300)
     private var maxDurationTask: Task<Void, Never>?
@@ -64,7 +65,7 @@ final class DictationController {
             }
         }
         log.notice("Apple cleanup available: \(FoundationModelsCleanup.isAvailable)")
-        cleanup.prewarm()
+        cleanup.prewarm(context: CleanupContext(dictionary: DictionaryStore.shared.words))
     }
 
     func beginDictation() {
@@ -103,6 +104,7 @@ final class DictationController {
             autoDismissNotice()
             return
         }
+        targetApp = ContextProvider.frontmostApp()
         recordingStartedAt = ContinuousClock.now
         state = .recording
         maxDurationTask = Task { [maximumUtterance] in
@@ -177,10 +179,20 @@ final class DictationController {
 
         let transcribedAt = ContinuousClock.now
 
+        let profile = ProfileStore.shared.resolve(bundleId: targetApp.bundleId)
+        var context = CleanupContext(
+            dictionary: DictionaryStore.shared.words,
+            toneHint: profile?.toneHint
+        )
+        if let vocab = profile?.vocab, !vocab.isEmpty {
+            context.dictionary += vocab
+        }
+        let profileForcesRaw = profile?.rawMode ?? false
+        let cleanupEnabled = SettingsStore.shared.cleanupEnabled && !profileForcesRaw
+
         let cleanupInterval = signposter.beginInterval("cleanup")
-        let cleanupEnabled = SettingsStore.shared.cleanupEnabled
         let service: any CleanupService = cleanupEnabled ? cleanup : rawCleanup
-        let cleaned = await service.cleanup(raw)
+        let cleaned = await service.cleanup(raw, context: context)
         signposter.endInterval("cleanup", cleanupInterval)
         let cleanedAt = ContinuousClock.now
 
@@ -190,7 +202,14 @@ final class DictationController {
         signposter.endInterval("insert", insertInterval)
         let pastedAt = ContinuousClock.now
 
-        let engine = cleanupEnabled ? cleanup.lastOutcome : "raw (cleanup off)"
+        let engine: String
+        if cleanupEnabled {
+            engine = cleanup.lastOutcome
+        } else if profileForcesRaw {
+            engine = "raw (app profile)"
+        } else {
+            engine = "raw (cleanup off)"
+        }
         let stats = DictationRunStats(
             audioMs: samples.count * 1000 / 16_000,
             transcribeMs: Self.milliseconds(transcribedAt - releasedAt),
