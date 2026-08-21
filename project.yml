@@ -1,0 +1,38 @@
+name: Murmur
+options:
+  bundleIdPrefix: com.elliot
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: UT78GDF44Z
+    ENABLE_HARDENED_RUNTIME: false
+    SWIFT_STRICT_CONCURRENCY: complete
+targets:
+  Murmur:
+    type: application
+    platform: macOS
+    sources:
+      - path: Murmur
+    info:
+      path: Murmur/Info.plist
+      properties:
+        CFBundleDisplayName: Murmur
+        LSUIElement: true
+        NSMicrophoneUsageDescription: Murmur records your voice while you hold the dictation key. Audio never leaves this Mac.
+    scheme:
+      testTargets:
+        - MurmurTests
+  MurmurTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: MurmurTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: Murmur
