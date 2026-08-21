@@ -62,51 +62,51 @@ final class HotkeyEventClassifierTests: XCTestCase {
         )
     }
 
-    func testOptionPDownClassifies() {
+    func testControlIDownClassifies() {
         XCTAssertEqual(
             HotkeyEventClassifier.classify(
-                type: .keyDown, keyCode: 35, flags: .maskAlternate, choice: .optionP
+                type: .keyDown, keyCode: 34, flags: .maskControl, choice: .controlI
             ),
             .hotkeyDown
         )
     }
 
-    func testOptionPAutorepeatIsIgnored() {
+    func testControlIAutorepeatIsIgnored() {
         XCTAssertNil(
             HotkeyEventClassifier.classify(
-                type: .keyDown, keyCode: 35, flags: .maskAlternate, isAutorepeat: true, choice: .optionP
+                type: .keyDown, keyCode: 34, flags: .maskControl, isAutorepeat: true, choice: .controlI
             )
         )
     }
 
-    func testPKeyUpEndsOptionPHoldRegardlessOfModifierState() {
+    func testIKeyUpEndsControlIHoldRegardlessOfModifierState() {
         XCTAssertEqual(
             HotkeyEventClassifier.classify(
-                type: .keyUp, keyCode: 35, flags: [], choice: .optionP
+                type: .keyUp, keyCode: 34, flags: [], choice: .controlI
             ),
             .hotkeyUp,
-            "release order must not matter, P up always ends the hold"
+            "release order must not matter, I up always ends the hold"
         )
         XCTAssertEqual(
             HotkeyEventClassifier.classify(
-                type: .keyUp, keyCode: 35, flags: .maskAlternate, choice: .optionP
+                type: .keyUp, keyCode: 34, flags: .maskControl, choice: .controlI
             ),
             .hotkeyUp
         )
     }
 
-    func testPlainPDoesNotTriggerOptionP() {
+    func testPlainIDoesNotTriggerControlI() {
         XCTAssertNil(
             HotkeyEventClassifier.classify(
-                type: .keyDown, keyCode: 35, flags: [], choice: .optionP
+                type: .keyDown, keyCode: 34, flags: [], choice: .controlI
             )
         )
     }
 
-    func testFnIsIgnoredWhenOptionPChosen() {
+    func testFnIsIgnoredWhenControlIChosen() {
         XCTAssertNil(
             HotkeyEventClassifier.classify(
-                type: .flagsChanged, keyCode: 63, flags: .maskSecondaryFn, choice: .optionP
+                type: .flagsChanged, keyCode: 63, flags: .maskSecondaryFn, choice: .controlI
             )
         )
     }

@@ -11,7 +11,7 @@ enum HotkeyEventClassifier {
     static let fnKeyCode: Int64 = 63
     static let rightCommandKeyCode: Int64 = 54
     static let escapeKeyCode: Int64 = 53
-    static let pKeyCode: Int64 = 35
+    static let iKeyCode: Int64 = 34
 
     static func classify(
         type: CGEventType,
@@ -31,10 +31,10 @@ enum HotkeyEventClassifier {
         case .rightCommand:
             guard type == .flagsChanged, keyCode == rightCommandKeyCode else { return nil }
             return flags.contains(.maskCommand) ? .hotkeyDown : .hotkeyUp
-        case .optionP:
-            guard keyCode == pKeyCode, !isAutorepeat else { return nil }
+        case .controlI:
+            guard keyCode == iKeyCode, !isAutorepeat else { return nil }
             switch type {
-            case .keyDown where flags.contains(.maskAlternate): return .hotkeyDown
+            case .keyDown where flags.contains(.maskControl): return .hotkeyDown
             case .keyUp: return .hotkeyUp
             default: return nil
             }

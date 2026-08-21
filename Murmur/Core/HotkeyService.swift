@@ -78,9 +78,9 @@ final class HotkeyService {
             isAutorepeat: isAutorepeat,
             choice: choice
         ) else {
-            // While dictating with Option+P, swallow P autorepeats and strays
+            // While dictating with Control+I, swallow I autorepeats and strays
             // so they do not type into the focused app.
-            if choice == .optionP, keyCode == HotkeyEventClassifier.pKeyCode, machine.isCapturing {
+            if choice == .controlI, keyCode == HotkeyEventClassifier.iKeyCode, machine.isCapturing {
                 return true
             }
             return false
@@ -99,7 +99,9 @@ final class HotkeyService {
             guard wasCapturing else { return false }
             actions = machine.handle(.escapeDown)
         }
-        log.info("\(String(describing: classified), privacy: .public) -> \(String(describing: actions), privacy: .public)")
+        if !actions.isEmpty || machine.isCapturing {
+            log.info("\(String(describing: classified), privacy: .public) -> \(String(describing: actions), privacy: .public)")
+        }
         dispatch(actions)
 
         switch classified {
@@ -107,8 +109,8 @@ final class HotkeyService {
             return true
         case .hotkeyDown, .hotkeyUp:
             // Combo keys are swallowed whenever they interact with a capture;
-            // an idle P key-up stays untouched so normal typing is unaffected.
-            return choice == .optionP && (wasCapturing || machine.isCapturing || !actions.isEmpty)
+            // an idle I key-up stays untouched so normal typing is unaffected.
+            return choice == .controlI && (wasCapturing || machine.isCapturing || !actions.isEmpty)
         }
     }
 

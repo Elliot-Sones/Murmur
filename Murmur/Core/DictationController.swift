@@ -90,7 +90,10 @@ final class DictationController {
         maxDurationTask = Task { [maximumUtterance] in
             try? await Task.sleep(for: maximumUtterance)
             guard !Task.isCancelled else { return }
-            DictationController.shared.finishDictation()
+            // Never auto-paste a runaway recording; discard it instead.
+            DictationController.shared.cancelDictation()
+            DictationController.shared.state = .notice("Dictation stopped after 5 minutes and was discarded.")
+            DictationController.shared.autoDismissNotice()
         }
     }
 
@@ -165,7 +168,7 @@ final class DictationController {
         state = .idle
     }
 
-    private func autoDismissNotice() {
+    func autoDismissNotice() {
         Task {
             try? await Task.sleep(for: .seconds(2.5))
             if case .notice = state { state = .idle }

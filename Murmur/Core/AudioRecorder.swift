@@ -5,11 +5,15 @@ enum RecorderError: Error {
 }
 
 /// Captures microphone audio and accumulates 16 kHz mono Float32 samples in memory.
-/// The tap callback runs on the audio thread; the sample buffer is lock-guarded.
+/// The tap callback runs on a CoreAudio queue; shared state is lock-guarded.
 final class AudioRecorder: @unchecked Sendable {
     private let engine = AVAudioEngine()
     private let lock = NSLock()
     private var samples: [Float] = []
+    private var converter: AVAudioConverter?
+    private let outputFormat = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32, sampleRate: 16_000, channels: 1, interleaved: false
+    )!
 
     /// Called on the audio thread with an RMS level in 0...1 for the HUD meter.
     var onLevel: (@Sendable (Float) -> Void)?
@@ -25,16 +29,18 @@ final class AudioRecorder: @unchecked Sendable {
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw RecorderError.noInputDevice
         }
-        let outputFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32, sampleRate: 16_000, channels: 1, interleaved: false
-        )!
-        guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
+        guard let newConverter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
             throw RecorderError.noInputDevice
         }
+        lock.withLock { converter = newConverter }
 
-        input.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, _ in
-            self?.process(buffer: buffer, converter: converter, outputFormat: outputFormat)
+        // The explicit @Sendable type keeps this closure from inheriting MainActor
+        // isolation; the tap fires on a CoreAudio queue and the runtime isolation
+        // assert crashes the app (SIGTRAP) if the closure is actor-isolated.
+        let tapBlock: @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void = { [weak self] buffer, _ in
+            self?.process(buffer: buffer)
         }
+        input.installTap(onBus: 0, bufferSize: 4096, format: inputFormat, block: tapBlock)
         engine.prepare()
         try engine.start()
     }
@@ -46,9 +52,7 @@ final class AudioRecorder: @unchecked Sendable {
         return lock.withLock { samples }
     }
 
-    private func process(
-        buffer: AVAudioPCMBuffer, converter: AVAudioConverter, outputFormat: AVAudioFormat
-    ) {
+    private func process(buffer: AVAudioPCMBuffer) {
         if let channel = buffer.floatChannelData?[0], buffer.frameLength > 0 {
             var sum: Float = 0
             let frames = Int(buffer.frameLength)
@@ -60,6 +64,7 @@ final class AudioRecorder: @unchecked Sendable {
             onLevel?(min(rms * 8, 1))
         }
 
+        guard let converter = lock.withLock({ converter }) else { return }
         let ratio = outputFormat.sampleRate / buffer.format.sampleRate
         let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 16
         guard let converted = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: capacity) else {
