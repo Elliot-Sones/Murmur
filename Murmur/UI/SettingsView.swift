@@ -2,14 +2,20 @@ import ServiceManagement
 import SwiftUI
 
 struct SettingsView: View {
+    // Reopen on the tab the user last used, surviving relaunches.
+    @AppStorage("settingsSelectedTab") private var selectedTab = "general"
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             GeneralSettingsTab()
                 .tabItem { Label("General", systemImage: "gear") }
+                .tag("general")
             DictionarySettingsTab()
                 .tabItem { Label("Dictionary", systemImage: "character.book.closed") }
+                .tag("dictionary")
             AppProfilesSettingsTab()
                 .tabItem { Label("Apps", systemImage: "app.badge") }
+                .tag("apps")
         }
         .frame(width: 560, height: 520)
     }
