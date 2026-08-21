@@ -19,12 +19,16 @@ final class SettingsWindowController {
             newWindow.title = "Murmur Settings"
             newWindow.styleMask = [.titled, .closable]
             newWindow.isReleasedWhenClosed = false
+            // Windows created during menu-bar tracking inherit an elevated
+            // level and float over other apps; pin to normal.
+            newWindow.level = .normal
             newWindow.setFrameAutosaveName("MurmurSettingsWindow")
             if !newWindow.setFrameUsingName("MurmurSettingsWindow") {
                 newWindow.center()
             }
             window = newWindow
         }
+        window?.level = .normal
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
