@@ -8,5 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !permissions.allGranted {
             OnboardingWindowController.shared.show()
         }
+        DictationController.shared.prepareEngines()
+        HotkeyService.shared.ensureRunning()
     }
 }

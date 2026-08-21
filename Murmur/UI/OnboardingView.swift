@@ -66,7 +66,7 @@ struct OnboardingView: View {
             Divider()
 
             if permissions.allGranted {
-                Label("All set. Dictation arrives with the next milestone.", systemImage: "checkmark.seal.fill")
+                Label("All set. Hold Fn anywhere and speak.", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
             } else {
                 Text("Grant all three permissions above. This window updates automatically.")
