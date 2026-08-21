@@ -23,11 +23,19 @@ final class AudioRecorder: @unchecked Sendable {
         lock.withLock { samples.removeAll(keepingCapacity: true) }
 
         let input = engine.inputNode
+        engine.disconnectNodeOutput(input)
         try? input.setVoiceProcessingEnabled(voiceProcessing)
 
         let inputFormat = input.outputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw RecorderError.noInputDevice
+        }
+        if voiceProcessing {
+            // The echo canceller needs a live full-duplex render path or it
+            // produces all-zero input. A muted mixer connection provides one
+            // without feeding the mic to the speakers.
+            engine.connect(input, to: engine.mainMixerNode, format: inputFormat)
+            engine.mainMixerNode.outputVolume = 0
         }
         guard let newConverter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
             throw RecorderError.noInputDevice

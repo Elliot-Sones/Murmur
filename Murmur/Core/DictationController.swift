@@ -111,6 +111,7 @@ final class DictationController {
         recordingStartedAt = ContinuousClock.now
         previewText = ""
         state = .recording
+        SoundCue.recordingStarted()
         if SettingsStore.shared.streamingPreviewEnabled {
             startPreviewLoop()
         }
@@ -261,6 +262,7 @@ final class DictationController {
         )
         lastRun = stats
         lastLatencyMs = stats.totalMs
+        SoundCue.inserted()
         log.notice("run: \(stats.audioSummary, privacy: .public) [\(stats.stageSummary, privacy: .public)] engine: \(engine, privacy: .public)")
         HistoryStore.shared.add(
             DictationRecord(

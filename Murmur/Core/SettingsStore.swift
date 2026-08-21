@@ -52,6 +52,7 @@ final class SettingsStore {
         static let restoreDelay = "restoreDelayMs"
         static let cleanupEngine = "cleanupEngine"
         static let ollamaModel = "ollamaModel"
+        static let soundCues = "soundCuesEnabled"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -74,6 +75,9 @@ final class SettingsStore {
     var ollamaModel: String {
         didSet { defaults.set(ollamaModel, forKey: Key.ollamaModel) }
     }
+    var soundCuesEnabled: Bool {
+        didSet { defaults.set(soundCuesEnabled, forKey: Key.soundCues) }
+    }
     var restoreDelayMs: Int {
         didSet { defaults.set(restoreDelayMs, forKey: Key.restoreDelay) }
     }
@@ -90,6 +94,7 @@ final class SettingsStore {
             rawValue: defaults.string(forKey: Key.cleanupEngine) ?? ""
         ) ?? .apple
         ollamaModel = defaults.string(forKey: Key.ollamaModel) ?? ""
+        soundCuesEnabled = defaults.object(forKey: Key.soundCues) as? Bool ?? true
         restoreDelayMs = defaults.object(forKey: Key.restoreDelay) as? Int ?? 250
     }
 }

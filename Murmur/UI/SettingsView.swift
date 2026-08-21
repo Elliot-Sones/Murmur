@@ -1,3 +1,4 @@
+import ServiceManagement
 import SwiftUI
 
 struct SettingsView: View {
@@ -72,6 +73,22 @@ private struct GeneralSettingsTab: View {
             Toggle("Live preview in HUD while dictating", isOn: Binding(
                 get: { settings.streamingPreviewEnabled },
                 set: { settings.streamingPreviewEnabled = $0 }
+            ))
+
+            Toggle("Sound cues", isOn: Binding(
+                get: { settings.soundCuesEnabled },
+                set: { settings.soundCuesEnabled = $0 }
+            ))
+
+            Toggle("Launch at login", isOn: Binding(
+                get: { SMAppService.mainApp.status == .enabled },
+                set: { enabled in
+                    if enabled {
+                        try? SMAppService.mainApp.register()
+                    } else {
+                        try? SMAppService.mainApp.unregister()
+                    }
+                }
             ))
 
             Stepper(

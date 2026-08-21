@@ -29,6 +29,7 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.restoreDelayMs, 250)
         XCTAssertEqual(store.cleanupEngine, .apple)
         XCTAssertEqual(store.ollamaModel, "")
+        XCTAssertTrue(store.soundCuesEnabled)
     }
 
     @MainActor
@@ -42,6 +43,7 @@ final class SettingsStoreTests: XCTestCase {
         first.restoreDelayMs = 400
         first.cleanupEngine = .ollama
         first.ollamaModel = "gemma4:latest"
+        first.soundCuesEnabled = false
 
         let second = SettingsStore(defaults: defaults)
         XCTAssertEqual(second.hotkey, .rightCommand)
@@ -51,5 +53,6 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(second.restoreDelayMs, 400)
         XCTAssertEqual(second.cleanupEngine, .ollama)
         XCTAssertEqual(second.ollamaModel, "gemma4:latest")
+        XCTAssertFalse(second.soundCuesEnabled)
     }
 }
