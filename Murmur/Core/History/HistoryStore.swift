@@ -59,6 +59,14 @@ final class HistoryStore {
         revision += 1
     }
 
+    /// Stores (or clears, with nil/empty) the hand-corrected ground truth.
+    func setCorrected(_ record: DictationRecord, text: String?) {
+        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        record.correctedText = (trimmed?.isEmpty ?? true) ? nil : trimmed
+        try? context.save()
+        revision += 1
+    }
+
     func clear() {
         try? context.delete(model: DictationRecord.self)
         try? context.save()

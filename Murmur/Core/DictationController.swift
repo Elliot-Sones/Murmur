@@ -203,6 +203,7 @@ final class DictationController {
             return
         }
         log.info("command instruction: \(instruction.count) chars, selection: \(selection.count) chars")
+        let transcribedAt = ContinuousClock.now
 
         guard let rewritten = await rewriter.rewrite(
             selection: selection, instruction: instruction
@@ -211,16 +212,17 @@ final class DictationController {
             autoDismissNotice()
             return
         }
+        let rewrittenAt = ContinuousClock.now
 
         state = .inserting
         await inserter.insert(rewritten, restoreDelayMs: SettingsStore.shared.restoreDelayMs)
+        let pastedAt = ContinuousClock.now
 
-        let elapsed = releasedAt.duration(to: ContinuousClock.now)
         let stats = DictationRunStats(
             audioMs: samples.count * 1000 / 16_000,
-            transcribeMs: 0,
-            cleanupMs: Self.milliseconds(elapsed),
-            pasteMs: 0,
+            transcribeMs: Self.milliseconds(releasedAt.duration(to: transcribedAt)),
+            cleanupMs: Self.milliseconds(transcribedAt.duration(to: rewrittenAt)),
+            pasteMs: Self.milliseconds(rewrittenAt.duration(to: pastedAt)),
             characters: rewritten.count,
             engine: rewriter.lastOutcome
         )
@@ -237,7 +239,10 @@ final class DictationController {
                 audioMs: stats.audioMs,
                 totalMs: stats.totalMs,
                 engine: rewriter.lastOutcome,
-                mode: "command"
+                mode: "command",
+                transcribeMs: stats.transcribeMs,
+                cleanupMs: stats.cleanupMs,
+                pasteMs: stats.pasteMs
             )
         )
         log.notice("command rewrite done in \(stats.totalMs) ms via \(self.rewriter.lastOutcome, privacy: .public)")
@@ -370,7 +375,10 @@ final class DictationController {
                 cleanedText: cleaned,
                 audioMs: stats.audioMs,
                 totalMs: stats.totalMs,
-                engine: engine
+                engine: engine,
+                transcribeMs: stats.transcribeMs,
+                cleanupMs: stats.cleanupMs,
+                pasteMs: stats.pasteMs
             )
         )
         state = .idle
