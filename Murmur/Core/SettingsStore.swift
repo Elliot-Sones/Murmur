@@ -25,6 +25,20 @@ enum HotkeyChoice: String, CaseIterable, Identifiable {
     }
 }
 
+enum CleanupEngineChoice: String, CaseIterable, Identifiable {
+    case apple
+    case ollama
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .apple: "Apple on-device"
+        case .ollama: "Ollama (local server)"
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class SettingsStore {
@@ -36,6 +50,8 @@ final class SettingsStore {
         static let cleanup = "cleanupEnabled"
         static let streamingPreview = "streamingPreviewEnabled"
         static let restoreDelay = "restoreDelayMs"
+        static let cleanupEngine = "cleanupEngine"
+        static let ollamaModel = "ollamaModel"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -52,6 +68,12 @@ final class SettingsStore {
     var streamingPreviewEnabled: Bool {
         didSet { defaults.set(streamingPreviewEnabled, forKey: Key.streamingPreview) }
     }
+    var cleanupEngine: CleanupEngineChoice {
+        didSet { defaults.set(cleanupEngine.rawValue, forKey: Key.cleanupEngine) }
+    }
+    var ollamaModel: String {
+        didSet { defaults.set(ollamaModel, forKey: Key.ollamaModel) }
+    }
     var restoreDelayMs: Int {
         didSet { defaults.set(restoreDelayMs, forKey: Key.restoreDelay) }
     }
@@ -64,6 +86,10 @@ final class SettingsStore {
         voiceProcessingEnabled = defaults.object(forKey: Key.voiceProcessing) as? Bool ?? false
         cleanupEnabled = defaults.object(forKey: Key.cleanup) as? Bool ?? true
         streamingPreviewEnabled = defaults.object(forKey: Key.streamingPreview) as? Bool ?? true
+        cleanupEngine = CleanupEngineChoice(
+            rawValue: defaults.string(forKey: Key.cleanupEngine) ?? ""
+        ) ?? .apple
+        ollamaModel = defaults.string(forKey: Key.ollamaModel) ?? ""
         restoreDelayMs = defaults.object(forKey: Key.restoreDelay) as? Int ?? 250
     }
 }

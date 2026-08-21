@@ -35,6 +35,7 @@ final class DictationController {
     @ObservationIgnored private let recorder = AudioRecorder()
     @ObservationIgnored private let transcriber: any TranscriptionService = FluidAudioTranscriber()
     @ObservationIgnored private let cleanup = FoundationModelsCleanup()
+    @ObservationIgnored private let ollamaCleanup = OllamaCleanup()
     @ObservationIgnored private let rawCleanup = RawPassthroughCleanup()
     @ObservationIgnored private let inserter = TextInserter()
     @ObservationIgnored private let signposter = OSSignposter(
@@ -224,7 +225,14 @@ final class DictationController {
         let cleanupEnabled = SettingsStore.shared.cleanupEnabled && !profileForcesRaw
 
         let cleanupInterval = signposter.beginInterval("cleanup")
-        let service: any CleanupService = cleanupEnabled ? cleanup : rawCleanup
+        let service: any CleanupService
+        if !cleanupEnabled {
+            service = rawCleanup
+        } else if SettingsStore.shared.cleanupEngine == .ollama {
+            service = ollamaCleanup
+        } else {
+            service = cleanup
+        }
         let cleaned = await service.cleanup(raw, context: context)
         signposter.endInterval("cleanup", cleanupInterval)
         let cleanedAt = ContinuousClock.now
@@ -237,7 +245,7 @@ final class DictationController {
 
         let engine: String
         if cleanupEnabled {
-            engine = cleanup.lastOutcome
+            engine = service.lastOutcome
         } else if profileForcesRaw {
             engine = "raw (app profile)"
         } else {

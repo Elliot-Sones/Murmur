@@ -17,6 +17,7 @@ struct SettingsView: View {
 private struct GeneralSettingsTab: View {
     private var settings: SettingsStore { .shared }
     private var controller: DictationController { .shared }
+    @State private var ollamaModels: [String] = []
 
     var body: some View {
         Form {
@@ -35,10 +36,38 @@ private struct GeneralSettingsTab: View {
                 set: { settings.voiceProcessingEnabled = $0 }
             ))
 
-            Toggle("AI cleanup (Apple on-device model)", isOn: Binding(
+            Toggle("AI cleanup", isOn: Binding(
                 get: { settings.cleanupEnabled },
                 set: { settings.cleanupEnabled = $0 }
             ))
+
+            Picker("Cleanup engine", selection: Binding(
+                get: { settings.cleanupEngine },
+                set: { settings.cleanupEngine = $0 }
+            )) {
+                ForEach(CleanupEngineChoice.allCases) { choice in
+                    Text(choice.displayName).tag(choice)
+                }
+            }
+            .disabled(!settings.cleanupEnabled)
+
+            if settings.cleanupEngine == .ollama {
+                Picker("Ollama model", selection: Binding(
+                    get: { settings.ollamaModel },
+                    set: { settings.ollamaModel = $0 }
+                )) {
+                    Text("Choose…").tag("")
+                    ForEach(ollamaModels, id: \.self) { model in
+                        Text(model).tag(model)
+                    }
+                }
+                .disabled(!settings.cleanupEnabled)
+                if ollamaModels.isEmpty {
+                    Text("Ollama server not reachable at localhost:11434.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             Toggle("Live preview in HUD while dictating", isOn: Binding(
                 get: { settings.streamingPreviewEnabled },
@@ -64,6 +93,9 @@ private struct GeneralSettingsTab: View {
             )
         }
         .padding(20)
+        .task {
+            ollamaModels = await OllamaCleanup.availableModels()
+        }
     }
 }
 

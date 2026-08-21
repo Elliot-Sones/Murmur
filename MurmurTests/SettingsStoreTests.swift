@@ -27,6 +27,8 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertTrue(store.cleanupEnabled)
         XCTAssertTrue(store.streamingPreviewEnabled)
         XCTAssertEqual(store.restoreDelayMs, 250)
+        XCTAssertEqual(store.cleanupEngine, .apple)
+        XCTAssertEqual(store.ollamaModel, "")
     }
 
     @MainActor
@@ -38,6 +40,8 @@ final class SettingsStoreTests: XCTestCase {
         first.cleanupEnabled = false
         first.streamingPreviewEnabled = false
         first.restoreDelayMs = 400
+        first.cleanupEngine = .ollama
+        first.ollamaModel = "gemma4:latest"
 
         let second = SettingsStore(defaults: defaults)
         XCTAssertEqual(second.hotkey, .rightCommand)
@@ -45,5 +49,7 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertFalse(second.cleanupEnabled)
         XCTAssertFalse(second.streamingPreviewEnabled)
         XCTAssertEqual(second.restoreDelayMs, 400)
+        XCTAssertEqual(second.cleanupEngine, .ollama)
+        XCTAssertEqual(second.ollamaModel, "gemma4:latest")
     }
 }
