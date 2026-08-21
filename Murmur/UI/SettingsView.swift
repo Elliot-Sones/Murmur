@@ -11,7 +11,7 @@ struct SettingsView: View {
             AppProfilesSettingsTab()
                 .tabItem { Label("Apps", systemImage: "app.badge") }
         }
-        .frame(width: 540, height: 420)
+        .frame(width: 560, height: 520)
     }
 }
 
@@ -22,104 +22,104 @@ private struct GeneralSettingsTab: View {
 
     var body: some View {
         Form {
-            Picker("Dictation key", selection: Binding(
-                get: { settings.hotkey },
-                set: { settings.hotkey = $0 }
-            )) {
-                ForEach(HotkeyChoice.allCases) { choice in
-                    Text(choice.displayName).tag(choice)
-                }
-            }
-            .pickerStyle(.radioGroup)
-
-            Picker("Command key (rewrite selection)", selection: Binding(
-                get: { settings.commandHotkey },
-                set: { settings.commandHotkey = $0 }
-            )) {
-                ForEach(CommandHotkeyChoice.allCases) { choice in
-                    Text(choice.displayName).tag(choice)
-                }
-            }
-            .pickerStyle(.radioGroup)
-
-            Toggle("Voice processing (experimental, may record silence)", isOn: Binding(
-                get: { settings.voiceProcessingEnabled },
-                set: { settings.voiceProcessingEnabled = $0 }
-            ))
-
-            Toggle("AI cleanup", isOn: Binding(
-                get: { settings.cleanupEnabled },
-                set: { settings.cleanupEnabled = $0 }
-            ))
-
-            Picker("Cleanup engine", selection: Binding(
-                get: { settings.cleanupEngine },
-                set: { settings.cleanupEngine = $0 }
-            )) {
-                ForEach(CleanupEngineChoice.allCases) { choice in
-                    Text(choice.displayName).tag(choice)
-                }
-            }
-            .disabled(!settings.cleanupEnabled)
-
-            if settings.cleanupEngine == .ollama {
-                Picker("Ollama model", selection: Binding(
-                    get: { settings.ollamaModel },
-                    set: { settings.ollamaModel = $0 }
+            Section("Keys") {
+                Picker("Dictation key", selection: Binding(
+                    get: { settings.hotkey },
+                    set: { settings.hotkey = $0 }
                 )) {
-                    Text("Choose…").tag("")
-                    ForEach(ollamaModels, id: \.self) { model in
-                        Text(model).tag(model)
+                    ForEach(HotkeyChoice.allCases) { choice in
+                        Text(choice.displayName).tag(choice)
+                    }
+                }
+                Picker("Command key (rewrite selection)", selection: Binding(
+                    get: { settings.commandHotkey },
+                    set: { settings.commandHotkey = $0 }
+                )) {
+                    ForEach(CommandHotkeyChoice.allCases) { choice in
+                        Text(choice.displayName).tag(choice)
+                    }
+                }
+            }
+
+            Section("Cleanup") {
+                Toggle("AI cleanup", isOn: Binding(
+                    get: { settings.cleanupEnabled },
+                    set: { settings.cleanupEnabled = $0 }
+                ))
+                Picker("Engine", selection: Binding(
+                    get: { settings.cleanupEngine },
+                    set: { settings.cleanupEngine = $0 }
+                )) {
+                    ForEach(CleanupEngineChoice.allCases) { choice in
+                        Text(choice.displayName).tag(choice)
                     }
                 }
                 .disabled(!settings.cleanupEnabled)
-                if ollamaModels.isEmpty {
-                    Text("Ollama server not reachable at localhost:11434.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+
+                if settings.cleanupEngine == .ollama {
+                    Picker("Ollama model", selection: Binding(
+                        get: { settings.ollamaModel },
+                        set: { settings.ollamaModel = $0 }
+                    )) {
+                        Text("Choose…").tag("")
+                        ForEach(ollamaModels, id: \.self) { model in
+                            Text(model).tag(model)
+                        }
+                    }
+                    .disabled(!settings.cleanupEnabled)
+                    if ollamaModels.isEmpty {
+                        Text("Ollama server not reachable at localhost:11434.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
-            Toggle("Live preview in HUD while dictating", isOn: Binding(
-                get: { settings.streamingPreviewEnabled },
-                set: { settings.streamingPreviewEnabled = $0 }
-            ))
-
-            Toggle("Sound cues", isOn: Binding(
-                get: { settings.soundCuesEnabled },
-                set: { settings.soundCuesEnabled = $0 }
-            ))
-
-            Toggle("Launch at login", isOn: Binding(
-                get: { SMAppService.mainApp.status == .enabled },
-                set: { enabled in
-                    if enabled {
-                        try? SMAppService.mainApp.register()
-                    } else {
-                        try? SMAppService.mainApp.unregister()
+            Section("Behavior") {
+                Toggle("Live preview in HUD while dictating", isOn: Binding(
+                    get: { settings.streamingPreviewEnabled },
+                    set: { settings.streamingPreviewEnabled = $0 }
+                ))
+                Toggle("Sound cues", isOn: Binding(
+                    get: { settings.soundCuesEnabled },
+                    set: { settings.soundCuesEnabled = $0 }
+                ))
+                Toggle("Voice processing (experimental, may record silence)", isOn: Binding(
+                    get: { settings.voiceProcessingEnabled },
+                    set: { settings.voiceProcessingEnabled = $0 }
+                ))
+                Stepper(
+                    "Clipboard restore delay: \(settings.restoreDelayMs) ms",
+                    value: Binding(
+                        get: { settings.restoreDelayMs },
+                        set: { settings.restoreDelayMs = $0 }
+                    ),
+                    in: 100...1000,
+                    step: 50
+                )
+                Toggle("Launch at login", isOn: Binding(
+                    get: { SMAppService.mainApp.status == .enabled },
+                    set: { enabled in
+                        if enabled {
+                            try? SMAppService.mainApp.register()
+                        } else {
+                            try? SMAppService.mainApp.unregister()
+                        }
                     }
-                }
-            ))
+                ))
+            }
 
-            Stepper(
-                "Clipboard restore delay: \(settings.restoreDelayMs) ms",
-                value: Binding(
-                    get: { settings.restoreDelayMs },
-                    set: { settings.restoreDelayMs = $0 }
-                ),
-                in: 100...1000,
-                step: 50
-            )
-
-            LabeledContent("Speech engine", value: controller.engineStatus)
-            LabeledContent(
-                "AI cleanup engine",
-                value: FoundationModelsCleanup.isAvailable
-                    ? "Apple on-device model available"
-                    : "Apple Intelligence unavailable, using raw transcripts"
-            )
+            Section("Status") {
+                LabeledContent("Speech engine", value: controller.engineStatus)
+                LabeledContent(
+                    "AI cleanup engine",
+                    value: FoundationModelsCleanup.isAvailable
+                        ? "Apple on-device model available"
+                        : "Apple Intelligence unavailable, using raw transcripts"
+                )
+            }
         }
-        .padding(20)
+        .formStyle(.grouped)
         .task {
             ollamaModels = await OllamaCleanup.availableModels()
         }
@@ -160,6 +160,7 @@ private struct DictionarySettingsTab: View {
                         ForEach(suggested, id: \.self) { word in
                             HStack(spacing: 4) {
                                 Button(word) { dictionary.add(word) }
+                                    .help("Add \"\(word)\" to the dictionary")
                                 Button {
                                     dictionary.dismissSuggestion(word)
                                 } label: {
@@ -167,6 +168,8 @@ private struct DictionarySettingsTab: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 .buttonStyle(.borderless)
+                                .help("Dismiss this suggestion")
+                                .accessibilityLabel("Dismiss suggestion \(word)")
                             }
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -186,6 +189,8 @@ private struct DictionarySettingsTab: View {
                         Image(systemName: "trash")
                     }
                     .buttonStyle(.borderless)
+                    .help("Remove from dictionary")
+                    .accessibilityLabel("Remove \(word)")
                 }
             }
             .frame(minHeight: 160)
@@ -265,6 +270,8 @@ private struct ProfileRow: View {
                     Image(systemName: "trash")
                 }
                 .buttonStyle(.borderless)
+                .help("Remove this profile")
+                .accessibilityLabel("Remove profile for \(profile.appName.isEmpty ? profile.bundleId : profile.appName)")
             }
             TextField("Tone hint (e.g. casual, lowercase ok)", text: Binding(
                 get: { store.resolve(bundleId: profile.bundleId)?.toneHint ?? "" },

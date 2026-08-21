@@ -67,6 +67,7 @@ private struct HistoryRow: View {
                 }
                 Text("\(record.totalMs) ms")
                     .font(.caption)
+                    .monospacedDigit()
                     .foregroundStyle(.tertiary)
                 Spacer()
                 Button {
@@ -77,12 +78,15 @@ private struct HistoryRow: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Copy text")
+                .accessibilityLabel("Copy dictation text")
                 Button(role: .destructive) {
                     history.delete(record)
                 } label: {
                     Image(systemName: "trash")
                 }
                 .buttonStyle(.borderless)
+                .help("Delete this dictation")
+                .accessibilityLabel("Delete dictation")
             }
             Text(record.cleanedText)
                 .lineLimit(3)

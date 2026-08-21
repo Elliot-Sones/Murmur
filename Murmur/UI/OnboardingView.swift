@@ -5,11 +5,17 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Welcome to Murmur")
-                    .font(.title.bold())
-                Text("Hold Fn anywhere, speak, release. Your words appear at the cursor. Everything runs on this Mac.")
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 14) {
+                Image(systemName: "waveform.circle.fill")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Welcome to Murmur")
+                        .font(.title.bold())
+                    Text("Hold \(SettingsStore.shared.hotkey.displayName.replacingOccurrences(of: "Hold ", with: "")) anywhere, speak, release. Your words appear at the cursor. Everything runs on this Mac.")
+                        .foregroundStyle(.secondary)
+                }
             }
 
             stepRow(

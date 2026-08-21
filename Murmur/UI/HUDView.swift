@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HUDView: View {
     private var controller: DictationController { .shared }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -14,6 +15,7 @@ struct HUDView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .truncationMode(.head)
+                    .transition(.opacity)
             }
         }
         .font(.callout)
@@ -21,13 +23,21 @@ struct HUDView: View {
         .padding(.vertical, 10)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(
+            reduceMotion ? nil : .easeOut(duration: 0.2),
+            value: controller.state
+        )
+        .animation(
+            reduceMotion ? nil : .easeOut(duration: 0.2),
+            value: controller.previewText
+        )
     }
 
     @ViewBuilder
     private var content: some View {
         switch controller.state {
         case .recording:
-            LevelMeter(level: controller.audioLevel)
+            LevelMeter(level: controller.audioLevel, reduceMotion: reduceMotion)
             Text(controller.mode == .command ? "Command: speak an instruction" : "Listening")
             Text("Esc cancels")
                 .foregroundStyle(.secondary)
@@ -46,6 +56,7 @@ struct HUDView: View {
                 .foregroundStyle(.green)
             if let latency = controller.lastLatencyMs {
                 Text("Done in \(latency) ms")
+                    .monospacedDigit()
             } else {
                 Text("Done")
             }
@@ -58,6 +69,7 @@ struct HUDView: View {
 
 private struct LevelMeter: View {
     let level: Float
+    let reduceMotion: Bool
     private let barCount = 5
 
     var body: some View {
@@ -68,7 +80,9 @@ private struct LevelMeter: View {
                     .frame(width: 3, height: barHeight(index))
             }
         }
-        .animation(.linear(duration: 0.08), value: level)
+        .animation(reduceMotion ? nil : .linear(duration: 0.08), value: level)
+        .accessibilityLabel("Microphone level")
+        .accessibilityValue("\(Int(level * 100)) percent")
     }
 
     private func barHeight(_ index: Int) -> CGFloat {
