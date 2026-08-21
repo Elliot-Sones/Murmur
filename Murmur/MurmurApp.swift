@@ -10,9 +10,6 @@ struct MurmurApp: App {
         } label: {
             Image(systemName: menuSymbol)
         }
-        Settings {
-            SettingsView()
-        }
     }
 
     private var menuSymbol: String {

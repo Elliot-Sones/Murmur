@@ -14,7 +14,10 @@ final class HistoryWindowController {
             newWindow.styleMask = [.titled, .closable, .resizable]
             newWindow.setContentSize(NSSize(width: 640, height: 480))
             newWindow.isReleasedWhenClosed = false
-            newWindow.center()
+            newWindow.setFrameAutosaveName("MurmurHistoryWindow")
+            if !newWindow.setFrameUsingName("MurmurHistoryWindow") {
+                newWindow.center()
+            }
             window = newWindow
         }
         NSApp.activate(ignoringOtherApps: true)

@@ -24,9 +24,7 @@ struct MenuBarView: View {
         ))
         Divider()
         Button("History…") { HistoryWindowController.shared.show() }
-        SettingsLink {
-            Text("Settings…")
-        }
+        Button("Settings…") { SettingsWindowController.shared.show() }
         Divider()
         Button("Quit Murmur") { NSApp.terminate(nil) }
     }
