@@ -20,7 +20,10 @@ final class SettingsStoreTests: XCTestCase {
     func testDefaults() {
         let store = SettingsStore(defaults: freshDefaults())
         XCTAssertEqual(store.hotkey, .fn)
-        XCTAssertTrue(store.voiceProcessingEnabled)
+        XCTAssertFalse(
+            store.voiceProcessingEnabled,
+            "voice processing must default off: without a full-duplex audio path it records silence"
+        )
         XCTAssertTrue(store.cleanupEnabled)
         XCTAssertEqual(store.restoreDelayMs, 250)
     }

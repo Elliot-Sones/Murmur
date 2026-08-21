@@ -16,7 +16,7 @@ struct SettingsView: View {
             }
             .pickerStyle(.radioGroup)
 
-            Toggle("Voice processing (noise suppression, echo cancellation)", isOn: Binding(
+            Toggle("Voice processing (experimental, may record silence)", isOn: Binding(
                 get: { settings.voiceProcessingEnabled },
                 set: { settings.voiceProcessingEnabled = $0 }
             ))

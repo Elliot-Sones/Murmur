@@ -55,7 +55,9 @@ final class SettingsStore {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         hotkey = HotkeyChoice(rawValue: defaults.string(forKey: Key.hotkey) ?? "") ?? .fn
-        voiceProcessingEnabled = defaults.object(forKey: Key.voiceProcessing) as? Bool ?? true
+        // Off by default: without a full-duplex audio path, voice processing
+        // records silence (all-zero buffers).
+        voiceProcessingEnabled = defaults.object(forKey: Key.voiceProcessing) as? Bool ?? false
         cleanupEnabled = defaults.object(forKey: Key.cleanup) as? Bool ?? true
         restoreDelayMs = defaults.object(forKey: Key.restoreDelay) as? Int ?? 250
     }
