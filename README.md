@@ -12,7 +12,9 @@ Hold Fn in any app. Speak. Release. Clean text appears at your cursor.
 
 ## Build and run
 
-    make run
+    make install
+
+This builds the app, copies it to /Applications, and launches it. Grant permissions to the /Applications copy so System Settings can always find it. `make run` launches straight from the build folder (fine for quick iteration after permissions are granted).
 
 ## Permissions
 
@@ -23,6 +25,8 @@ Murmur needs three permissions. The onboarding window guides you through them:
 3. Input Monitoring: detects the Fn key in any app.
 
 Also set System Settings > Keyboard > "Press 🌐 key" to "Do Nothing". This frees the Fn key for Murmur.
+
+If Murmur does not appear in a permission list: click the + button, press Cmd+Shift+G in the file picker, type `/Applications`, and select Murmur.app.
 
 If permissions break after a rebuild, reset them and grant again:
 

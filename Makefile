@@ -1,4 +1,4 @@
-.PHONY: generate build run test clean
+.PHONY: generate build run test install clean
 
 DERIVED := .build
 APP := Murmur
@@ -11,6 +11,12 @@ build: generate
 
 run: build
 	open $(DERIVED)/Build/Products/Debug/$(APP).app
+
+install: build
+	-pkill -x $(APP)
+	rm -rf /Applications/$(APP).app
+	ditto $(DERIVED)/Build/Products/Debug/$(APP).app /Applications/$(APP).app
+	open /Applications/$(APP).app
 
 test: generate
 	xcodebuild -project $(APP).xcodeproj -scheme $(APP) -configuration Debug -derivedDataPath $(DERIVED) test
