@@ -12,13 +12,15 @@ struct HistoryView: View {
         let records = history.records(matching: query)
 
         VStack(spacing: 0) {
-            HStack {
+            HStack(spacing: 10) {
                 TextField("Search dictations", text: $query)
                     .textFieldStyle(.roundedBorder)
                 Button("Clear All", role: .destructive) { confirmingClear = true }
                     .disabled(records.isEmpty && query.isEmpty)
             }
-            .padding(12)
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
 
             if records.isEmpty {
                 Spacer()
@@ -46,8 +48,8 @@ private struct HistoryRow: View {
     private var history: HistoryStore { .shared }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
                 Text(record.date.formatted(date: .abbreviated, time: .shortened))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -90,8 +92,9 @@ private struct HistoryRow: View {
             }
             Text(record.cleanedText)
                 .lineLimit(3)
+                .lineSpacing(2)
                 .textSelection(.enabled)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
     }
 }

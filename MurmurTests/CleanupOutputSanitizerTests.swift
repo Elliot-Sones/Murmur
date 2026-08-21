@@ -73,6 +73,27 @@ final class CleanupOutputSanitizerTests: XCTestCase {
         )
     }
 
+    func testAnswerReusingTheQuestionsWordsIsStillCaught() {
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(
+                "Um, can you do it for me? Yes, I can do that for you. What do you need help with?",
+                rawTranscript: "um can you do it for me"
+            ),
+            "um can you do it for me",
+            "output much longer than the transcript is an answer, not a cleanup"
+        )
+    }
+
+    func testModestLengthGrowthIsAllowed() {
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(
+                "Send the report Wednesday, please.",
+                rawTranscript: "send the report wednesday please"
+            ),
+            "Send the report Wednesday, please."
+        )
+    }
+
     func testFillerRemovalSurvivesTheOverlapGuard() {
         XCTAssertEqual(
             CleanupOutputSanitizer.sanitize(

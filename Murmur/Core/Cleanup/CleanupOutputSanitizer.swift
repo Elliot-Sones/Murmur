@@ -34,15 +34,21 @@ enum CleanupOutputSanitizer {
         return result
     }
 
-    /// Cleanup may only remove or fix words, so nearly every output word must
-    /// come from the transcript. A low ratio means the model answered or
-    /// invented instead of cleaning.
+    /// Cleanup may only remove or fix words. Two independent checks:
+    /// nearly every output word must come from the transcript, and the output
+    /// must not be meaningfully longer than what was spoken. An answer that
+    /// quotes the question passes the first check but never the second.
     private static func isOffScript(_ output: String, rawTranscript: String) -> Bool {
-        let spokenWords = Set(WordErrorRate.normalize(rawTranscript))
+        let spoken = WordErrorRate.normalize(rawTranscript)
         let outputWords = WordErrorRate.normalize(output)
-        guard !spokenWords.isEmpty, !outputWords.isEmpty else { return false }
-        let kept = outputWords.filter { spokenWords.contains($0) }.count
-        return Double(kept) / Double(outputWords.count) < 0.6
+        guard !spoken.isEmpty, !outputWords.isEmpty else { return false }
+
+        let spokenSet = Set(spoken)
+        let kept = outputWords.filter { spokenSet.contains($0) }.count
+        if Double(kept) / Double(outputWords.count) < 0.6 { return true }
+
+        let allowedLength = Int(Double(spoken.count) * 1.3) + 2
+        return outputWords.count > allowedLength
     }
 
     private static func stripCodeFences(_ text: String) -> String {
