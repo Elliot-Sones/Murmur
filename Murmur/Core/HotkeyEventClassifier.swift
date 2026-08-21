@@ -27,6 +27,8 @@ enum HotkeyEventClassifier {
         switch choice {
         case .rightOption:
             guard type == .flagsChanged, keyCode == rightOptionKeyCode else { return nil }
+            // Control plus option belongs to the dictation chord.
+            guard !flags.contains(.maskControl) else { return nil }
             return flags.contains(.maskAlternate) ? .hotkeyDown : .hotkeyUp
         case .controlO:
             guard keyCode == oKeyCode, !isAutorepeat else { return nil }
@@ -43,6 +45,7 @@ enum HotkeyEventClassifier {
         keyCode: Int64,
         flags: CGEventFlags,
         isAutorepeat: Bool = false,
+        chordActive: Bool = false,
         choice: HotkeyChoice
     ) -> ClassifiedKeyEvent? {
         if type == .keyDown, keyCode == escapeKeyCode {
@@ -63,6 +66,12 @@ enum HotkeyEventClassifier {
             case .keyUp: return .hotkeyUp
             default: return nil
             }
+        case .controlOption:
+            guard type == .flagsChanged else { return nil }
+            let active = flags.contains(.maskControl) && flags.contains(.maskAlternate)
+            if active, !chordActive { return .hotkeyDown }
+            if !active, chordActive { return .hotkeyUp }
+            return nil
         }
     }
 }

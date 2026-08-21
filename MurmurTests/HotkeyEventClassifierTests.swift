@@ -111,6 +111,62 @@ final class HotkeyEventClassifierTests: XCTestCase {
         )
     }
 
+    func testControlOptionChordDownWhenBothModifiersArrive() {
+        XCTAssertEqual(
+            HotkeyEventClassifier.classify(
+                type: .flagsChanged, keyCode: 61, flags: [.maskControl, .maskAlternate],
+                chordActive: false, choice: .controlOption
+            ),
+            .hotkeyDown
+        )
+    }
+
+    func testControlOptionChordUpWhenEitherModifierReleases() {
+        XCTAssertEqual(
+            HotkeyEventClassifier.classify(
+                type: .flagsChanged, keyCode: 59, flags: .maskAlternate,
+                chordActive: true, choice: .controlOption
+            ),
+            .hotkeyUp,
+            "releasing control while option is still down must end the hold"
+        )
+    }
+
+    func testControlOptionSingleModifierDoesNotTrigger() {
+        XCTAssertNil(
+            HotkeyEventClassifier.classify(
+                type: .flagsChanged, keyCode: 59, flags: .maskControl,
+                chordActive: false, choice: .controlOption
+            )
+        )
+        XCTAssertNil(
+            HotkeyEventClassifier.classify(
+                type: .flagsChanged, keyCode: 61, flags: .maskAlternate,
+                chordActive: false, choice: .controlOption
+            )
+        )
+    }
+
+    func testControlOptionNoRepeatWhileChordHeld() {
+        XCTAssertNil(
+            HotkeyEventClassifier.classify(
+                type: .flagsChanged, keyCode: 56, flags: [.maskControl, .maskAlternate, .maskShift],
+                chordActive: true, choice: .controlOption
+            ),
+            "extra modifier changes while the chord is held must not re-trigger"
+        )
+    }
+
+    func testCommandRightOptionIgnoredWhileControlHeld() {
+        XCTAssertNil(
+            HotkeyEventClassifier.classifyCommand(
+                type: .flagsChanged, keyCode: 61, flags: [.maskControl, .maskAlternate],
+                choice: .rightOption
+            ),
+            "control plus option belongs to the dictation chord, never command mode"
+        )
+    }
+
     func testCommandRightOptionFlagTransitions() {
         XCTAssertEqual(
             HotkeyEventClassifier.classifyCommand(

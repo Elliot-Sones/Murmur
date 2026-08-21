@@ -5,6 +5,7 @@ enum HotkeyChoice: String, CaseIterable, Identifiable {
     case fn
     case rightCommand
     case controlI
+    case controlOption
 
     var id: String { rawValue }
 
@@ -13,6 +14,7 @@ enum HotkeyChoice: String, CaseIterable, Identifiable {
         case .fn: "Hold Fn (Globe)"
         case .rightCommand: "Hold Right Command"
         case .controlI: "Hold Control+I"
+        case .controlOption: "Hold Control+Option"
         }
     }
 
@@ -21,6 +23,7 @@ enum HotkeyChoice: String, CaseIterable, Identifiable {
         case .fn: "🌐"
         case .rightCommand: "Right ⌘"
         case .controlI: "⌃I"
+        case .controlOption: "⌃⌥"
         }
     }
 }
@@ -80,7 +83,13 @@ final class SettingsStore {
     @ObservationIgnored private let defaults: UserDefaults
 
     var hotkey: HotkeyChoice {
-        didSet { defaults.set(hotkey.rawValue, forKey: Key.hotkey) }
+        didSet {
+            defaults.set(hotkey.rawValue, forKey: Key.hotkey)
+            // Right Option is one of the chord keys; vacate it for command mode.
+            if hotkey == .controlOption, commandHotkey == .rightOption {
+                commandHotkey = .controlO
+            }
+        }
     }
     var voiceProcessingEnabled: Bool {
         didSet { defaults.set(voiceProcessingEnabled, forKey: Key.voiceProcessing) }

@@ -14,6 +14,9 @@ final class HotkeyService {
     private let log = Logger(subsystem: "com.elliot.Murmur", category: "hotkey")
     private var machine = HotkeyStateMachine()
     private var commandMachine = HotkeyStateMachine()
+    /// Physical state of the Control+Option chord, tracked independently of
+    /// the state machine so press and release pair up correctly.
+    private var dictationChordDown = false
     private var tap: CFMachPort?
     private var retryTimer: Timer?
     private var tickTimer: Timer?
@@ -89,8 +92,12 @@ final class HotkeyService {
 
         if let classified = HotkeyEventClassifier.classify(
             type: type, keyCode: keyCode, flags: event.flags,
-            isAutorepeat: isAutorepeat, choice: choice
+            isAutorepeat: isAutorepeat, chordActive: dictationChordDown, choice: choice
         ), classified != .escape {
+            if choice == .controlOption {
+                if classified == .hotkeyDown { dictationChordDown = true }
+                if classified == .hotkeyUp { dictationChordDown = false }
+            }
             guard !commandMachine.isCapturing else { return false }
             let wasCapturing = machine.isCapturing
             let actions: [HotkeyStateMachine.Action]

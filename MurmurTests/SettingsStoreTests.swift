@@ -34,6 +34,17 @@ final class SettingsStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testChoosingControlOptionDictationMovesCommandOffRightOption() {
+        let store = SettingsStore(defaults: freshDefaults())
+        XCTAssertEqual(store.commandHotkey, .rightOption)
+        store.hotkey = .controlOption
+        XCTAssertEqual(
+            store.commandHotkey, .controlO,
+            "right option is part of the dictation chord and must be vacated"
+        )
+    }
+
+    @MainActor
     func testPersistsAcrossInstances() {
         let defaults = freshDefaults()
         let first = SettingsStore(defaults: defaults)
