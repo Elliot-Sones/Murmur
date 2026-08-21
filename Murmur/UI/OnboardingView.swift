@@ -48,26 +48,31 @@ struct OnboardingView: View {
 
             Divider()
 
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "globe")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 20)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Free the Fn key")
-                        .font(.headline)
-                    Text("Set Keyboard > \"Press 🌐 key\" to \"Do Nothing\" so Murmur can own it.")
-                        .font(.callout)
+            if SettingsStore.shared.hotkey == .fn {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "globe")
                         .foregroundStyle(.secondary)
+                        .frame(width: 20)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Free the Fn key")
+                            .font(.headline)
+                        Text("Set Keyboard > \"Press 🌐 key\" to \"Do Nothing\" so Murmur can own it.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Open Keyboard Settings") { SystemSettingsPane.keyboard.open() }
                 }
-                Spacer()
-                Button("Open Keyboard Settings") { SystemSettingsPane.keyboard.open() }
+
+                Divider()
             }
 
-            Divider()
-
             if permissions.allGranted {
-                Label("All set. Hold Fn anywhere and speak.", systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
+                Label(
+                    "All set. \(SettingsStore.shared.hotkey.displayName) anywhere and speak.",
+                    systemImage: "checkmark.seal.fill"
+                )
+                .foregroundStyle(.green)
             } else {
                 Text("Grant all three permissions above. This window updates automatically.")
                     .font(.callout)

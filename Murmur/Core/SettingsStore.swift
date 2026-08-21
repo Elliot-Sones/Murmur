@@ -4,6 +4,7 @@ import Observation
 enum HotkeyChoice: String, CaseIterable, Identifiable {
     case fn
     case rightCommand
+    case optionP
 
     var id: String { rawValue }
 
@@ -11,6 +12,15 @@ enum HotkeyChoice: String, CaseIterable, Identifiable {
         switch self {
         case .fn: "Hold Fn (Globe)"
         case .rightCommand: "Hold Right Command"
+        case .optionP: "Hold Option+P"
+        }
+    }
+
+    var shortName: String {
+        switch self {
+        case .fn: "🌐"
+        case .rightCommand: "Right ⌘"
+        case .optionP: "⌥P"
         }
     }
 }

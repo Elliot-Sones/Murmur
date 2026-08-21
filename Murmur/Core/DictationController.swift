@@ -18,8 +18,13 @@ final class DictationController {
 
     static let shared = DictationController()
 
+    @ObservationIgnored private let log = Logger(subsystem: "com.elliot.Murmur", category: "dictation")
+
     private(set) var state: State = .idle {
-        didSet { HUDPanelController.shared.stateChanged(state) }
+        didSet {
+            log.notice("state -> \(String(describing: self.state), privacy: .public)")
+            HUDPanelController.shared.stateChanged(state)
+        }
     }
     var audioLevel: Float = 0
     private(set) var lastLatencyMs: Int?
@@ -138,9 +143,11 @@ final class DictationController {
         signposter.endInterval("transcribe", transcribeInterval)
 
         guard !raw.isEmpty else {
+            log.notice("empty transcript, nothing to insert")
             state = .idle
             return
         }
+        log.info("transcribed \(raw.count) chars")
 
         let cleanupInterval = signposter.beginInterval("cleanup")
         let service: any CleanupService = SettingsStore.shared.cleanupEnabled ? cleanup : rawCleanup

@@ -8,28 +8,36 @@ enum ClassifiedKeyEvent: Equatable {
 
 /// Maps raw CGEvent facts to hotkey events for the configured dictation key.
 enum HotkeyEventClassifier {
-    private static let fnKeyCode: Int64 = 63
-    private static let rightCommandKeyCode: Int64 = 54
-    private static let escapeKeyCode: Int64 = 53
+    static let fnKeyCode: Int64 = 63
+    static let rightCommandKeyCode: Int64 = 54
+    static let escapeKeyCode: Int64 = 53
+    static let pKeyCode: Int64 = 35
 
     static func classify(
         type: CGEventType,
         keyCode: Int64,
         flags: CGEventFlags,
+        isAutorepeat: Bool = false,
         choice: HotkeyChoice
     ) -> ClassifiedKeyEvent? {
         if type == .keyDown, keyCode == escapeKeyCode {
             return .escape
         }
-        guard type == .flagsChanged else { return nil }
 
         switch choice {
         case .fn:
-            guard keyCode == fnKeyCode else { return nil }
+            guard type == .flagsChanged, keyCode == fnKeyCode else { return nil }
             return flags.contains(.maskSecondaryFn) ? .hotkeyDown : .hotkeyUp
         case .rightCommand:
-            guard keyCode == rightCommandKeyCode else { return nil }
+            guard type == .flagsChanged, keyCode == rightCommandKeyCode else { return nil }
             return flags.contains(.maskCommand) ? .hotkeyDown : .hotkeyUp
+        case .optionP:
+            guard keyCode == pKeyCode, !isAutorepeat else { return nil }
+            switch type {
+            case .keyDown where flags.contains(.maskAlternate): return .hotkeyDown
+            case .keyUp: return .hotkeyUp
+            default: return nil
+            }
         }
     }
 }

@@ -27,7 +27,7 @@ struct MenuBarView: View {
     private var statusLine: String {
         switch controller.state {
         case .idle:
-            let hotkey = settings.hotkey == .fn ? "Fn" : "Right ⌘"
+            let hotkey = settings.hotkey.shortName
             if let latency = controller.lastLatencyMs {
                 return "Ready. Hold \(hotkey) to dictate. Last: \(latency) ms"
             }

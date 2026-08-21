@@ -1,12 +1,17 @@
 import AppKit
 import CoreGraphics
+import os
 
 /// Owns the CGEventTap that watches the dictation key system-wide.
+/// The tap is active (not listen-only) so combo hotkeys like Option+P can be
+/// swallowed instead of typing "π" into the focused app. Lone-modifier hotkeys
+/// (Fn, Right Command) are never consumed.
 /// The tap source lives on the main run loop, so callbacks arrive on the main thread.
 @MainActor
 final class HotkeyService {
     static let shared = HotkeyService()
 
+    private let log = Logger(subsystem: "com.elliot.Murmur", category: "hotkey")
     private var machine = HotkeyStateMachine()
     private var tap: CFMachPort?
     private var retryTimer: Timer?
@@ -16,10 +21,12 @@ final class HotkeyService {
     func ensureRunning() {
         guard tap == nil else { return }
         if createTap() {
+            log.notice("Event tap created")
             retryTimer?.invalidate()
             retryTimer = nil
             return
         }
+        log.error("Event tap creation failed, likely missing Input Monitoring; retrying")
         guard retryTimer == nil else { return }
         retryTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
             Task { @MainActor in HotkeyService.shared.ensureRunning() }
@@ -27,18 +34,20 @@ final class HotkeyService {
     }
 
     private func createTap() -> Bool {
-        let mask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
+        let mask = (1 << CGEventType.flagsChanged.rawValue)
+            | (1 << CGEventType.keyDown.rawValue)
+            | (1 << CGEventType.keyUp.rawValue)
         let callback: CGEventTapCallBack = { _, type, event, _ in
             // The tap runs on the main run loop; hop is safe to assume.
-            MainActor.assumeIsolated {
+            let consumed = MainActor.assumeIsolated {
                 HotkeyService.shared.handle(type: type, event: event)
             }
-            return Unmanaged.passUnretained(event)
+            return consumed ? nil : Unmanaged.passUnretained(event)
         }
         guard let newTap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
-            options: .listenOnly,
+            options: .defaultTap,
             eventsOfInterest: CGEventMask(mask),
             callback: callback,
             userInfo: nil
@@ -52,18 +61,32 @@ final class HotkeyService {
         return true
     }
 
-    private func handle(type: CGEventType, event: CGEvent) {
+    /// Returns true when the event must be swallowed (not delivered to apps).
+    private func handle(type: CGEventType, event: CGEvent) -> Bool {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
-            return
+            return false
         }
+        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        let isAutorepeat = event.getIntegerValueField(.keyboardEventAutorepeat) == 1
+        let choice = SettingsStore.shared.hotkey
+
         guard let classified = HotkeyEventClassifier.classify(
             type: type,
-            keyCode: event.getIntegerValueField(.keyboardEventKeycode),
+            keyCode: keyCode,
             flags: event.flags,
-            choice: SettingsStore.shared.hotkey
-        ) else { return }
+            isAutorepeat: isAutorepeat,
+            choice: choice
+        ) else {
+            // While dictating with Option+P, swallow P autorepeats and strays
+            // so they do not type into the focused app.
+            if choice == .optionP, keyCode == HotkeyEventClassifier.pKeyCode, machine.isCapturing {
+                return true
+            }
+            return false
+        }
 
+        let wasCapturing = machine.isCapturing
         let now = ProcessInfo.processInfo.systemUptime
         let actions: [HotkeyStateMachine.Action]
         switch classified {
@@ -73,10 +96,20 @@ final class HotkeyService {
             actions = machine.handle(.hotkeyUp(now))
             scheduleTick()
         case .escape:
-            guard machine.isCapturing else { return }
+            guard wasCapturing else { return false }
             actions = machine.handle(.escapeDown)
         }
+        log.info("\(String(describing: classified), privacy: .public) -> \(String(describing: actions), privacy: .public)")
         dispatch(actions)
+
+        switch classified {
+        case .escape:
+            return true
+        case .hotkeyDown, .hotkeyUp:
+            // Combo keys are swallowed whenever they interact with a capture;
+            // an idle P key-up stays untouched so normal typing is unaffected.
+            return choice == .optionP && (wasCapturing || machine.isCapturing || !actions.isEmpty)
+        }
     }
 
     /// A short tap parks the machine in pendingDecision; the tick resolves it

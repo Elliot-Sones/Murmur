@@ -61,4 +61,53 @@ final class HotkeyEventClassifierTests: XCTestCase {
             "fn must not trigger when right command is the chosen key"
         )
     }
+
+    func testOptionPDownClassifies() {
+        XCTAssertEqual(
+            HotkeyEventClassifier.classify(
+                type: .keyDown, keyCode: 35, flags: .maskAlternate, choice: .optionP
+            ),
+            .hotkeyDown
+        )
+    }
+
+    func testOptionPAutorepeatIsIgnored() {
+        XCTAssertNil(
+            HotkeyEventClassifier.classify(
+                type: .keyDown, keyCode: 35, flags: .maskAlternate, isAutorepeat: true, choice: .optionP
+            )
+        )
+    }
+
+    func testPKeyUpEndsOptionPHoldRegardlessOfModifierState() {
+        XCTAssertEqual(
+            HotkeyEventClassifier.classify(
+                type: .keyUp, keyCode: 35, flags: [], choice: .optionP
+            ),
+            .hotkeyUp,
+            "release order must not matter, P up always ends the hold"
+        )
+        XCTAssertEqual(
+            HotkeyEventClassifier.classify(
+                type: .keyUp, keyCode: 35, flags: .maskAlternate, choice: .optionP
+            ),
+            .hotkeyUp
+        )
+    }
+
+    func testPlainPDoesNotTriggerOptionP() {
+        XCTAssertNil(
+            HotkeyEventClassifier.classify(
+                type: .keyDown, keyCode: 35, flags: [], choice: .optionP
+            )
+        )
+    }
+
+    func testFnIsIgnoredWhenOptionPChosen() {
+        XCTAssertNil(
+            HotkeyEventClassifier.classify(
+                type: .flagsChanged, keyCode: 63, flags: .maskSecondaryFn, choice: .optionP
+            )
+        )
+    }
 }

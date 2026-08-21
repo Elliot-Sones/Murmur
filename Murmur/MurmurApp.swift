@@ -5,11 +5,22 @@ struct MurmurApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("Murmur", systemImage: "waveform") {
+        MenuBarExtra {
             MenuBarView()
+        } label: {
+            Image(systemName: menuSymbol)
         }
         Settings {
             SettingsView()
+        }
+    }
+
+    private var menuSymbol: String {
+        switch DictationController.shared.state {
+        case .recording: "waveform.badge.mic"
+        case .transcribing, .inserting: "waveform.circle"
+        case .notice: "exclamationmark.bubble"
+        case .idle, .preparing: "waveform"
         }
     }
 }
