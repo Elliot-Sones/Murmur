@@ -85,7 +85,7 @@ Cleanup prompt (FoundationModels instructions): fix punctuation and capitalizati
 
 ### M3: Full replica features (done 2026-08-21)
 - Command mode: hold Right Option with text selected, speak an instruction, selection is rewritten in place. Selection capture via AX `selectedText`, fallback Cmd+C with restore. Rewrites default to Ollama (bigger model), FoundationModels fallback.
-- Context awareness: frontmost app + AX window title fed to cleanup prompt. No screenshots in v1.
+- Context awareness: frontmost app + AX window title fed to cleanup prompt. No screenshots in v1. Field-tested correction: the Apple 3B model echoes the destination line into output and invents headers to match the app, so destination context is fed to the Ollama engine only. App tone for the Apple engine comes from per-app profile instructions.
 - Auto-learn dictionary: track repeated out-of-vocabulary proper nouns from history, surface "add to dictionary?" suggestions in Settings.
 
 ## Key implementation notes

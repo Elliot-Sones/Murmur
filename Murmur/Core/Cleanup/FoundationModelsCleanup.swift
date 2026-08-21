@@ -47,11 +47,11 @@ final class FoundationModelsCleanup: CleanupService {
             return raw
         }
 
-        let prompt = builder.userPrompt(
-            rawTranscript: trimmed,
-            appName: context.appName,
-            windowTitle: context.windowTitle
-        )
+        // The 3B model treats destination metadata too literally: it echoes
+        // the line into the output or invents headers ("Subject:") to match
+        // the app. Destination context is Ollama-only; app tone for this
+        // engine comes from profile instructions instead.
+        let prompt = builder.userPrompt(rawTranscript: trimmed)
         let responseTask = Task { @MainActor in
             try await session.respond(to: prompt).content
         }
