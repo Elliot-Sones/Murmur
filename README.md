@@ -36,8 +36,8 @@ If permissions break after a rebuild, reset them and grant again:
 
 ## Status
 
-- M0 (current): menu bar shell, permissions onboarding
-- M1: core dictation loop (Parakeet STT, on-device cleanup, paste at cursor)
+- M0 (done): menu bar shell, permissions onboarding
+- M1 (current): core dictation loop (Parakeet STT, on-device cleanup, paste at cursor)
 - M2: dictionary, history, per-app profiles, streaming preview, engine bench
 - M3: command mode, context awareness, auto-learn dictionary
 
