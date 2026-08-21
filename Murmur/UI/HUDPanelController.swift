@@ -1,12 +1,23 @@
 import AppKit
 import SwiftUI
 
+/// The HUD's backing panel. Subclassed because borderless panels refuse key
+/// window status by default, and the review editor needs real keyboard focus.
+final class ReviewHUDPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
 /// Floating, non-activating HUD near the bottom of the screen. Never steals focus.
 @MainActor
 final class HUDPanelController {
     static let shared = HUDPanelController()
     private var panel: NSPanel?
     private var hideTask: Task<Void, Never>?
+
+    /// True while the HUD owns the keyboard, which is when the review editor
+    /// should swallow Return/Esc. False once the user clicks into another app.
+    var reviewPanelIsKey: Bool { panel?.isKeyWindow ?? false }
 
     func stateChanged(_ state: DictationController.State) {
         switch state {
@@ -33,7 +44,7 @@ final class HUDPanelController {
     private func show(interactive: Bool, key: Bool, tall: Bool) {
         if panel == nil {
             let hosting = NSHostingView(rootView: HUDView())
-            let newPanel = NSPanel(
+            let newPanel = ReviewHUDPanel(
                 contentRect: .zero,
                 styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
@@ -59,6 +70,9 @@ final class HUDPanelController {
         if key {
             panel.makeKeyAndOrderFront(nil)
         } else {
+            // Hand the keyboard back before anything else happens; a key HUD
+            // would swallow the synthetic Cmd+V meant for the target app.
+            if panel.isKeyWindow { panel.orderOut(nil) }
             panel.orderFrontRegardless()
         }
     }

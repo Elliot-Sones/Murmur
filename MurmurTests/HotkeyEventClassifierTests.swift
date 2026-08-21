@@ -215,4 +215,61 @@ final class HotkeyEventClassifierTests: XCTestCase {
             "plain o must not trigger command mode"
         )
     }
+
+    func testReviewReturnAccepts() {
+        XCTAssertEqual(
+            HotkeyEventClassifier.classifyReview(type: .keyDown, keyCode: 36, flags: []),
+            .accept
+        )
+        XCTAssertEqual(
+            HotkeyEventClassifier.classifyReview(type: .keyDown, keyCode: 76, flags: []),
+            .accept,
+            "keypad Enter accepts too"
+        )
+        XCTAssertEqual(
+            HotkeyEventClassifier.classifyReview(
+                type: .keyDown, keyCode: 36, flags: .maskNonCoalesced
+            ),
+            .accept,
+            "real events carry non-modifier bits; only modifier keys matter"
+        )
+    }
+
+    func testReviewEscapeCancels() {
+        XCTAssertEqual(
+            HotkeyEventClassifier.classifyReview(type: .keyDown, keyCode: 53, flags: []),
+            .cancel
+        )
+    }
+
+    func testReviewModifiedKeysPassThrough() {
+        XCTAssertNil(
+            HotkeyEventClassifier.classifyReview(type: .keyDown, keyCode: 36, flags: .maskShift),
+            "Shift+Return should reach the field as a line break"
+        )
+        XCTAssertNil(
+            HotkeyEventClassifier.classifyReview(type: .keyDown, keyCode: 36, flags: .maskAlternate),
+            "Option+Return should reach the field as a line break"
+        )
+        XCTAssertNil(
+            HotkeyEventClassifier.classifyReview(type: .keyDown, keyCode: 36, flags: .maskCommand)
+        )
+        XCTAssertNil(
+            HotkeyEventClassifier.classifyReview(type: .keyDown, keyCode: 36, flags: .maskControl)
+        )
+        XCTAssertNil(
+            HotkeyEventClassifier.classifyReview(type: .keyDown, keyCode: 53, flags: .maskCommand)
+        )
+    }
+
+    func testReviewIgnoresOtherEvents() {
+        XCTAssertNil(
+            HotkeyEventClassifier.classifyReview(type: .keyUp, keyCode: 36, flags: []),
+            "only key presses act"
+        )
+        XCTAssertNil(
+            HotkeyEventClassifier.classifyReview(type: .keyDown, keyCode: 0, flags: []),
+            "ordinary typing passes through to the editor"
+        )
+    }
 }
