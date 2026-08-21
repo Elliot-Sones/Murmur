@@ -34,10 +34,12 @@ final class HistoryStore {
         container = try ModelContainer(for: DictationRecord.self, configurations: configuration)
     }
 
-    func add(_ record: DictationRecord) {
+    @discardableResult
+    func add(_ record: DictationRecord) -> DictationRecord {
         context.insert(record)
         try? context.save()
         revision += 1
+        return record
     }
 
     func records(matching query: String) -> [DictationRecord] {
@@ -55,6 +57,12 @@ final class HistoryStore {
 
     func delete(_ record: DictationRecord) {
         context.delete(record)
+        try? context.save()
+        revision += 1
+    }
+
+    func setVote(_ record: DictationRecord, vote: Int) {
+        record.vote = vote
         try? context.save()
         revision += 1
     }

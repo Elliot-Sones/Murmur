@@ -78,6 +78,21 @@ final class HistoryStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testVoteRoundTripsAndToggles() throws {
+        let store = try makeStore()
+        store.add(record(text: "flag me"))
+        guard let saved = store.records(matching: "").first else {
+            XCTFail("expected the record back")
+            return
+        }
+        XCTAssertEqual(saved.vote, 0)
+        store.setVote(saved, vote: -1)
+        XCTAssertEqual(store.records(matching: "").first?.vote, -1)
+        store.setVote(saved, vote: 0)
+        XCTAssertEqual(store.records(matching: "").first?.vote, 0)
+    }
+
+    @MainActor
     func testClearRemovesEverything() throws {
         let store = try makeStore()
         store.add(record(text: "one"))

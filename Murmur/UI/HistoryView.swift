@@ -76,6 +76,10 @@ struct HistoryView: View {
                 .reduce(0, +) / Double(corrected.count)
             parts.append(String(format: "%.0f%% accuracy over %d corrected", average, corrected.count))
         }
+        let flagged = records.filter { $0.vote == -1 }.count
+        if flagged > 0 {
+            parts.append("\(flagged) flagged")
+        }
         return parts.joined(separator: " · ")
     }
 }
@@ -132,6 +136,13 @@ private struct HistoryRow: View {
                         )
                     )
                 }
+                if record.vote == -1 {
+                    Image(systemName: "hand.thumbsdown.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .help("Flagged as wrong")
+                        .accessibilityLabel("Flagged as wrong")
+                }
                 Text("\(record.totalMs) ms")
                     .font(.caption)
                     .monospacedDigit()
@@ -139,7 +150,9 @@ private struct HistoryRow: View {
                 Spacer()
                 Button {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(record.cleanedText, forType: .string)
+                    NSPasteboard.general.setString(
+                        record.correctedText ?? record.cleanedText, forType: .string
+                    )
                 } label: {
                     Image(systemName: "doc.on.doc")
                 }
@@ -193,7 +206,14 @@ private struct HistoryRow: View {
                     .lineLimit(4)
                     .textSelection(.enabled)
             }
-            correctionSection
+            HStack {
+                correctionSection
+                Spacer()
+                Button(record.vote == -1 ? "Unflag" : "Flag as wrong") {
+                    history.setVote(record, vote: record.vote == -1 ? 0 : -1)
+                }
+                .controlSize(.small)
+            }
         }
         .padding(.leading, 20)
         .padding(.top, 2)
