@@ -45,7 +45,7 @@ final class OllamaCleanup: CleanupService {
                 lastOutcome = "raw (Ollama bad response)"
                 return raw
             }
-            let cleaned = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cleaned = CleanupOutputSanitizer.sanitize(content, rawTranscript: trimmed)
             lastOutcome = "Ollama (\(model))"
             return cleaned.isEmpty ? raw : cleaned
         } catch {

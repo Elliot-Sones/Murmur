@@ -62,8 +62,9 @@ final class FoundationModelsCleanup: CleanupService {
         defer { timeoutTask.cancel() }
 
         do {
-            let cleaned = try await responseTask.value
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let cleaned = CleanupOutputSanitizer.sanitize(
+                try await responseTask.value, rawTranscript: trimmed
+            )
             lastOutcome = "Apple on-device model"
             return cleaned.isEmpty ? raw : cleaned
         } catch is CancellationError {

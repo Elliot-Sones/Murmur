@@ -49,8 +49,8 @@ final class Rewriter {
         guard let (data, _) = try? await ollamaSession.data(for: request),
             let content = OllamaAPI.parseChatResponse(data)
         else { return nil }
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        let sanitized = CleanupOutputSanitizer.sanitize(content, rawTranscript: selection)
+        return sanitized.isEmpty ? nil : sanitized
     }
 
     private func foundationRewrite(selection: String, instruction: String) async -> String? {
@@ -68,7 +68,7 @@ final class Rewriter {
         defer { timeoutTask.cancel() }
 
         guard let content = try? await responseTask.value else { return nil }
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        let sanitized = CleanupOutputSanitizer.sanitize(content, rawTranscript: selection)
+        return sanitized.isEmpty ? nil : sanitized
     }
 }
