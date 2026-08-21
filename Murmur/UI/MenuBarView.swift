@@ -11,6 +11,12 @@ struct MenuBarView: View {
         if !permissions.allGranted {
             Button("Finish Setup…") { OnboardingWindowController.shared.show() }
         }
+        if let stats = controller.lastRun {
+            Divider()
+            Text(stats.audioSummary)
+            Text(stats.stageSummary)
+            Text("Cleanup: \(stats.engine)")
+        }
         Divider()
         Toggle("AI Cleanup", isOn: Binding(
             get: { settings.cleanupEnabled },

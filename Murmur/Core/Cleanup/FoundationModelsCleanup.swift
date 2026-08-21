@@ -10,6 +10,9 @@ final class FoundationModelsCleanup: CleanupService {
     private var session: LanguageModelSession?
     private let timeout: Duration = .seconds(3)
 
+    /// What actually happened on the most recent cleanup call.
+    private(set) var lastOutcome = "not run yet"
+
     static var isAvailable: Bool {
         if case .available = SystemLanguageModel.default.availability { return true }
         return false
@@ -24,9 +27,16 @@ final class FoundationModelsCleanup: CleanupService {
 
     func cleanup(_ raw: String) async -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard Self.isAvailable, !trimmed.isEmpty else { return raw }
+        guard Self.isAvailable else {
+            lastOutcome = "raw (Apple Intelligence unavailable)"
+            return raw
+        }
+        guard !trimmed.isEmpty else { return raw }
         if session == nil { prewarm() }
-        guard let session else { return raw }
+        guard let session else {
+            lastOutcome = "raw (no session)"
+            return raw
+        }
 
         let prompt = builder.userPrompt(rawTranscript: trimmed)
         let responseTask = Task { @MainActor in
@@ -41,10 +51,16 @@ final class FoundationModelsCleanup: CleanupService {
         do {
             let cleaned = try await responseTask.value
                 .trimmingCharacters(in: .whitespacesAndNewlines)
+            lastOutcome = "Apple on-device model"
             return cleaned.isEmpty ? raw : cleaned
+        } catch is CancellationError {
+            self.session = nil
+            lastOutcome = "raw (model timed out)"
+            return raw
         } catch {
             // A failed or overflowing session gets rebuilt on the next dictation.
             self.session = nil
+            lastOutcome = "raw (model error)"
             return raw
         }
     }

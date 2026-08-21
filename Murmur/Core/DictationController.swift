@@ -28,6 +28,7 @@ final class DictationController {
     }
     var audioLevel: Float = 0
     private(set) var lastLatencyMs: Int?
+    private(set) var lastRun: DictationRunStats?
     private(set) var engineStatus = "Speech model not loaded"
 
     @ObservationIgnored private let recorder = AudioRecorder()
@@ -62,6 +63,7 @@ final class DictationController {
                 state = .notice("Speech model failed to load. Check network and relaunch.")
             }
         }
+        log.notice("Apple cleanup available: \(FoundationModelsCleanup.isAvailable)")
         cleanup.prewarm()
     }
 
@@ -173,20 +175,39 @@ final class DictationController {
         }
         log.info("transcribed \(raw.count) chars")
 
+        let transcribedAt = ContinuousClock.now
+
         let cleanupInterval = signposter.beginInterval("cleanup")
-        let service: any CleanupService = SettingsStore.shared.cleanupEnabled ? cleanup : rawCleanup
+        let cleanupEnabled = SettingsStore.shared.cleanupEnabled
+        let service: any CleanupService = cleanupEnabled ? cleanup : rawCleanup
         let cleaned = await service.cleanup(raw)
         signposter.endInterval("cleanup", cleanupInterval)
+        let cleanedAt = ContinuousClock.now
 
         state = .inserting
         let insertInterval = signposter.beginInterval("insert")
         await inserter.insert(cleaned, restoreDelayMs: SettingsStore.shared.restoreDelayMs)
         signposter.endInterval("insert", insertInterval)
+        let pastedAt = ContinuousClock.now
 
-        let elapsed = ContinuousClock.now - releasedAt
-        lastLatencyMs = Int(elapsed.components.seconds * 1000)
-            + Int(elapsed.components.attoseconds / 1_000_000_000_000_000)
+        let engine = cleanupEnabled ? cleanup.lastOutcome : "raw (cleanup off)"
+        let stats = DictationRunStats(
+            audioMs: samples.count * 1000 / 16_000,
+            transcribeMs: Self.milliseconds(transcribedAt - releasedAt),
+            cleanupMs: Self.milliseconds(cleanedAt - transcribedAt),
+            pasteMs: Self.milliseconds(pastedAt - cleanedAt),
+            characters: cleaned.count,
+            engine: engine
+        )
+        lastRun = stats
+        lastLatencyMs = stats.totalMs
+        log.notice("run: \(stats.audioSummary, privacy: .public) [\(stats.stageSummary, privacy: .public)] engine: \(engine, privacy: .public)")
         state = .idle
+    }
+
+    private static func milliseconds(_ duration: Duration) -> Int {
+        Int(duration.components.seconds * 1000)
+            + Int(duration.components.attoseconds / 1_000_000_000_000_000)
     }
 
     func autoDismissNotice() {
