@@ -101,7 +101,7 @@ struct PillView: View {
                 Text(controller.previewText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(1)
                     .truncationMode(.head)
                     .transition(.opacity)
             }

@@ -70,9 +70,14 @@ final class PillPanelController {
     }
 
     private func currentSize() -> NSSize {
-        let active = ReaderController.shared.isActive
-            || DictationController.shared.state != .idle
-            || DictationController.shared.showDoneRow
-        return active ? NSSize(width: 460, height: 96) : NSSize(width: 56, height: 34)
+        // The reader bar earns its size; the dictation faces are one row.
+        // Each family shares a single size so stages never resize mid-flow.
+        if ReaderController.shared.isActive {
+            return NSSize(width: 460, height: 96)
+        }
+        if DictationController.shared.state != .idle || DictationController.shared.showDoneRow {
+            return NSSize(width: 400, height: 70)
+        }
+        return NSSize(width: 56, height: 34)
     }
 }
