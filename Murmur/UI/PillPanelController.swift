@@ -48,33 +48,31 @@ final class PillPanelController {
         layout()
     }
 
-    /// Resizes for whatever the widget is currently showing.
+    /// Resizes for whatever the widget is currently showing. Every active
+    /// face shares one size so faces crossfade inside a still capsule; the
+    /// only geometry changes are pill-to-panel and back, animated.
     func layout() {
         guard let panel, let screen = NSScreen.main else { return }
         let size = currentSize()
-        let origin = NSPoint(
-            x: screen.visibleFrame.midX - size.width / 2,
-            y: screen.visibleFrame.minY + 10
+        guard panel.frame.size != size else {
+            panel.orderFrontRegardless()
+            return
+        }
+        let frame = NSRect(
+            origin: NSPoint(
+                x: screen.visibleFrame.midX - size.width / 2,
+                y: screen.visibleFrame.minY + 10
+            ),
+            size: size
         )
-        panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        panel.setFrame(frame, display: true, animate: true)
         panel.orderFrontRegardless()
     }
 
     private func currentSize() -> NSSize {
-        if ReaderController.shared.isActive {
-            return NSSize(width: 460, height: 96)
-        }
-        switch DictationController.shared.state {
-        case .recording:
-            return NSSize(width: 400, height: 88)
-        case .transcribing, .inserting, .preparing:
-            return NSSize(width: 300, height: 56)
-        case .notice:
-            return NSSize(width: 420, height: 56)
-        case .idle:
-            return DictationController.shared.showDoneRow
-                ? NSSize(width: 260, height: 48)
-                : NSSize(width: 56, height: 34)
-        }
+        let active = ReaderController.shared.isActive
+            || DictationController.shared.state != .idle
+            || DictationController.shared.showDoneRow
+        return active ? NSSize(width: 460, height: 96) : NSSize(width: 56, height: 34)
     }
 }

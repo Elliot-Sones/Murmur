@@ -10,33 +10,51 @@ struct PillView: View {
     private var settings: SettingsStore { .shared }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var showsPanel: Bool {
+        reader.isActive || controller.state != .idle || controller.showDoneRow
+    }
+
     var body: some View {
         Group {
-            if reader.isActive {
-                readerBar.padding(.horizontal, 14).padding(.vertical, 8).background(capsule)
-            } else {
-                switch controller.state {
-                case .recording:
-                    recordingRow.padding(.horizontal, 16).padding(.vertical, 10).background(capsule)
-                case .transcribing, .inserting, .preparing:
-                    workingRow.padding(.horizontal, 16).padding(.vertical, 10).background(capsule)
-                case .notice(let message):
-                    noticeRow(message).padding(.horizontal, 16).padding(.vertical, 10).background(capsule)
-                case .idle:
-                    if controller.showDoneRow {
-                        doneRow.padding(.horizontal, 14).padding(.vertical, 8).background(capsule)
-                    } else {
-                        togglePill
-                    }
+            if showsPanel {
+                // One capsule that fills the panel; faces crossfade inside
+                // it so nothing appears to move.
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16).fill(.ultraThinMaterial)
+                    face
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
                 }
+                .padding(4)
+            } else {
+                togglePill
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: controller.state)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: controller.state)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: reader.isActive)
     }
 
-    private var capsule: some View {
-        RoundedRectangle(cornerRadius: 14).fill(.ultraThinMaterial)
+    @ViewBuilder
+    private var face: some View {
+        if reader.isActive {
+            readerBar
+        } else {
+            switch controller.state {
+            case .recording:
+                recordingRow
+            case .transcribing, .inserting, .preparing:
+                workingRow
+            case .notice(let message):
+                noticeRow(message)
+            case .idle:
+                if controller.showDoneRow {
+                    doneRow
+                } else {
+                    EmptyView()
+                }
+            }
+        }
     }
 
     // MARK: - Idle toggle
