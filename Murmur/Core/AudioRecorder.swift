@@ -43,6 +43,20 @@ final class AudioRecorder: @unchecked Sendable {
         let input = engine.inputNode
         try? input.setVoiceProcessingEnabled(voiceProcessing)
 
+        // Opening a Bluetooth mic drags the headphones from A2DP into HFP,
+        // so music drops to telephone quality for the whole recording.
+        // Capture from the built-in mic instead; playback stays untouched.
+        if let defaultInput = InputDeviceQuery.defaultID(),
+            InputDeviceQuery.isBluetooth(defaultInput),
+            let builtIn = InputDeviceQuery.builtInID() {
+            do {
+                try input.auAudioUnit.setDeviceID(builtIn)
+                log.notice("bluetooth default input; capturing from built-in mic instead")
+            } catch {
+                log.error("could not steer capture to built-in mic: \(error.localizedDescription)")
+            }
+        }
+
         let inputFormat = input.outputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw RecorderError.noInputDevice
@@ -172,5 +186,76 @@ final class AudioRecorder: @unchecked Sendable {
         guard count > 0 else { return }
         let chunk = Array(UnsafeBufferPointer(start: channel, count: count))
         lock.withLock { samples.append(contentsOf: chunk) }
+    }
+}
+
+/// CoreAudio lookups for steering capture away from Bluetooth mics.
+enum InputDeviceQuery {
+    static func defaultID() -> AudioDeviceID? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var deviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID
+        )
+        guard status == noErr, deviceID != kAudioObjectUnknown else { return nil }
+        return deviceID
+    }
+
+    static func isBluetooth(_ deviceID: AudioDeviceID) -> Bool {
+        guard let transport = transportType(of: deviceID) else { return false }
+        return transport == kAudioDeviceTransportTypeBluetooth
+            || transport == kAudioDeviceTransportTypeBluetoothLE
+    }
+
+    /// First built-in device with input streams, or nil on Macs without one.
+    static func builtInID() -> AudioDeviceID? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size = UInt32(0)
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size
+        ) == noErr else { return nil }
+        var devices = [AudioDeviceID](
+            repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size
+        )
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &devices
+        ) == noErr else { return nil }
+        return devices.first { device in
+            transportType(of: device) == kAudioDeviceTransportTypeBuiltIn && hasInput(device)
+        }
+    }
+
+    private static func transportType(of deviceID: AudioDeviceID) -> UInt32? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var transport = UInt32(0)
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &transport) == noErr
+        else { return nil }
+        return transport
+    }
+
+    private static func hasInput(_ deviceID: AudioDeviceID) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreams,
+            mScope: kAudioObjectPropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size = UInt32(0)
+        guard AudioObjectGetPropertyDataSize(deviceID, &address, 0, nil, &size) == noErr
+        else { return false }
+        return size > 0
     }
 }
