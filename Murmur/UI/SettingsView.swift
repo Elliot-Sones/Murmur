@@ -98,6 +98,19 @@ private struct GeneralSettingsTab: View {
                         Text(choice.displayName).tag(choice)
                     }
                 }
+                if settings.ttsEngine == .kokoroServer {
+                    Picker("Kokoro voice", selection: Binding(
+                        get: { settings.ttsKokoroVoice },
+                        set: { settings.ttsKokoroVoice = $0 }
+                    )) {
+                        ForEach(TtsEngineChoice.kokoroVoices, id: \.self) { voice in
+                            Text(voice).tag(voice)
+                        }
+                    }
+                    Text("af/am are American female/male, bf/bm are British. Samples live in tts-server/samples/kokoro.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if settings.ttsEngine == .qwen {
                     Picker("Qwen speaker", selection: Binding(
                         get: { settings.ttsQwenVoice },

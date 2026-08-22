@@ -25,7 +25,7 @@ final class TtsService {
             return nil
         case .kokoro:
             return await speakWithKokoro(trimmed)
-        case .chatterbox, .qwen:
+        case .kokoroServer, .chatterbox, .qwen:
             return await speakViaServer(trimmed)
         }
     }
@@ -67,7 +67,11 @@ final class TtsService {
 
     private func speakViaServer(_ text: String) async -> String? {
         let engine = SettingsStore.shared.ttsEngine
-        let voice = engine == .qwen ? SettingsStore.shared.ttsQwenVoice : ""
+        let voice = switch engine {
+        case .qwen: SettingsStore.shared.ttsQwenVoice
+        case .kokoroServer: SettingsStore.shared.ttsKokoroVoice
+        default: ""
+        }
         guard let request = TtsRequestBuilder.speechRequest(
             engine: engine, text: text, voice: voice
         ) else { return nil }

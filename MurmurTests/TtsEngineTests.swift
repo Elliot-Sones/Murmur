@@ -5,8 +5,18 @@ final class TtsEngineTests: XCTestCase {
     func testAllEnginesPresent() {
         XCTAssertEqual(
             TtsEngineChoice.allCases,
-            [.system, .kokoro, .chatterbox, .qwen]
+            [.system, .kokoro, .kokoroServer, .chatterbox, .qwen]
         )
+    }
+
+    func testKokoroServerExposesTheFullVoiceList() {
+        XCTAssertEqual(
+            TtsEngineChoice.kokoroServer.serverModel,
+            "mlx-community/Kokoro-82M-bf16"
+        )
+        XCTAssertTrue(TtsEngineChoice.kokoroVoices.contains("af_heart"))
+        XCTAssertTrue(TtsEngineChoice.kokoroVoices.contains("bm_fable"))
+        XCTAssertGreaterThanOrEqual(TtsEngineChoice.kokoroVoices.count, 12)
     }
 
     func testDisplayNamesAreDistinctAndNonEmpty() {
