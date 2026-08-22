@@ -31,9 +31,10 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.ollamaModel, "")
         XCTAssertTrue(store.soundCuesEnabled)
         XCTAssertEqual(store.commandHotkey, .rightOption)
-        XCTAssertEqual(store.ttsEngine, .system, "read-back must work with zero downloads by default")
+        XCTAssertEqual(store.ttsEngine, .system, "speaking must work with zero downloads by default")
         XCTAssertEqual(store.ttsKokoroVoice, "af_heart")
-        XCTAssertEqual(store.ttsQwenVoice, "Vivian")
+        XCTAssertEqual(store.ttsQwenVoice, "Ryan", "Ryan is the English-tuned Qwen preset")
+        XCTAssertFalse(store.speakSelectionEnabled, "speak-on-highlight is opt-in via the pill")
     }
 
     @MainActor
@@ -62,7 +63,8 @@ final class SettingsStoreTests: XCTestCase {
         first.commandHotkey = .controlO
         first.ttsEngine = .chatterbox
         first.ttsKokoroVoice = "bm_george"
-        first.ttsQwenVoice = "Ethan"
+        first.ttsQwenVoice = "Aiden"
+        first.speakSelectionEnabled = true
 
         let second = SettingsStore(defaults: defaults)
         XCTAssertEqual(second.hotkey, .rightCommand)
@@ -76,6 +78,7 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(second.commandHotkey, .controlO)
         XCTAssertEqual(second.ttsEngine, .chatterbox)
         XCTAssertEqual(second.ttsKokoroVoice, "bm_george")
-        XCTAssertEqual(second.ttsQwenVoice, "Ethan")
+        XCTAssertEqual(second.ttsQwenVoice, "Aiden")
+        XCTAssertTrue(second.speakSelectionEnabled)
     }
 }

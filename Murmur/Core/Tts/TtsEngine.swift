@@ -22,6 +22,12 @@ enum TtsEngineChoice: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Preset speakers of the Qwen3-TTS CustomVoice model. Ryan and Aiden
+    /// are the English-tuned ones; the rest carry their own accents.
+    static let qwenVoices = [
+        "Ryan", "Aiden", "Vivian", "Serena", "Dylan", "Eric", "Uncle_Fu", "Ono_Anna", "Sohee",
+    ]
+
     /// HuggingFace model id the local mlx-audio server should load,
     /// nil for engines that run inside the app.
     var serverModel: String? {

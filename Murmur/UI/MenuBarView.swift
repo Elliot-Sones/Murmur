@@ -22,9 +22,10 @@ struct MenuBarView: View {
             get: { settings.cleanupEnabled },
             set: { settings.cleanupEnabled = $0 }
         ))
-        if controller.lastRecord != nil {
-            Button("Speak Last Dictation") { controller.speakLastRecord() }
-        }
+        Toggle("Speak Highlighted Text", isOn: Binding(
+            get: { SelectionSpeaker.shared.enabled },
+            set: { SelectionSpeaker.shared.enabled = $0 }
+        ))
         Divider()
         Button("Settings…") { SettingsWindowController.shared.show() }
         Divider()

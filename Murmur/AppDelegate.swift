@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         DictationController.shared.prepareEngines()
         HotkeyService.shared.ensureRunning()
+        PillPanelController.shared.show()
+        SelectionSpeaker.shared.syncWithSettings()
     }
 
     /// Opening the app while it is already running surfaces the status window.

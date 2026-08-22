@@ -13,6 +13,11 @@ enum SelectionCapturer {
         return await pasteboardCopy()
     }
 
+    /// AX-only read, safe to poll: never posts keys or touches the pasteboard.
+    static func axSelectedText() -> String? {
+        accessibilitySelectedText()
+    }
+
     private static func accessibilitySelectedText() -> String? {
         let systemWide = AXUIElementCreateSystemWide()
         var focusedRef: CFTypeRef?

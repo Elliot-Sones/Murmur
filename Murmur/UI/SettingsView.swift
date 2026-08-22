@@ -28,6 +28,7 @@ private struct GeneralSettingsTab: View {
     private var settings: SettingsStore { .shared }
     private var controller: DictationController { .shared }
     @State private var ollamaModels: [String] = []
+    @State private var previewError: String?
 
     var body: some View {
         Form {
@@ -84,8 +85,12 @@ private struct GeneralSettingsTab: View {
                 }
             }
 
-            Section("Read back") {
-                Picker("Voice engine", selection: Binding(
+            Section("Speak selection") {
+                Toggle("Speak highlighted text (the pill at the bottom of the screen)", isOn: Binding(
+                    get: { SelectionSpeaker.shared.enabled },
+                    set: { SelectionSpeaker.shared.enabled = $0 }
+                ))
+                Picker("Voice", selection: Binding(
                     get: { settings.ttsEngine },
                     set: { settings.ttsEngine = $0 }
                 )) {
@@ -93,20 +98,33 @@ private struct GeneralSettingsTab: View {
                         Text(choice.displayName).tag(choice)
                     }
                 }
-                if settings.ttsEngine == .kokoro {
-                    TextField("Kokoro voice", text: Binding(
-                        get: { settings.ttsKokoroVoice },
-                        set: { settings.ttsKokoroVoice = $0 }
-                    ))
-                    Text("Try af_heart, af_bella, am_michael, bf_emma, or bm_george. First use downloads the model.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
                 if settings.ttsEngine == .qwen {
-                    TextField("Qwen voice", text: Binding(
+                    Picker("Qwen speaker", selection: Binding(
                         get: { settings.ttsQwenVoice },
                         set: { settings.ttsQwenVoice = $0 }
-                    ))
+                    )) {
+                        ForEach(TtsEngineChoice.qwenVoices, id: \.self) { voice in
+                            Text(voice.replacingOccurrences(of: "_", with: " ")).tag(voice)
+                        }
+                    }
+                }
+                HStack {
+                    Button("Preview Voice") {
+                        Task {
+                            if let failure = await TtsService.shared.speakLatest(
+                                "Hi, this is Murmur. This is how I sound when you highlight text."
+                            ) {
+                                previewError = failure
+                            } else {
+                                previewError = nil
+                            }
+                        }
+                    }
+                    if let previewError {
+                        Text(previewError)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
                 }
                 if settings.ttsEngine.serverModel != nil {
                     Text("Needs the local voice server: run `make tts-serve` in the Murmur folder.")

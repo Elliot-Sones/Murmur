@@ -63,15 +63,6 @@ struct HUDView: View {
             if let record = controller.lastRecord {
                 Spacer(minLength: 12)
                 Button {
-                    controller.speakLastRecord()
-                } label: {
-                    Image(systemName: "speaker.wave.2")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.borderless)
-                .help("Read this dictation aloud")
-                .accessibilityLabel("Read last dictation aloud")
-                Button {
                     controller.flagLastRecord()
                 } label: {
                     Image(systemName: record.vote == -1 ? "hand.thumbsdown.fill" : "hand.thumbsdown")
