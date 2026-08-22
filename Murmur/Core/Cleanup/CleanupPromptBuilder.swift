@@ -20,7 +20,12 @@ struct CleanupPromptBuilder {
             """
         ]
         if !dictionary.isEmpty {
-            parts.append("Prefer these exact spellings when they match what was said: \(dictionary.joined(separator: ", ")).")
+            parts.append(
+                "Prefer these exact spellings when they match what was said: "
+                    + "\(dictionary.joined(separator: ", ")). Use them only to fix words "
+                    + "already in the transcript. Never add them as new words, and never "
+                    + "mention or list them."
+            )
         }
         if let toneHint, !toneHint.isEmpty {
             parts.append(

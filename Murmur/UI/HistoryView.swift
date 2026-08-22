@@ -67,8 +67,15 @@ struct HistoryView: View {
         if let median = Median.of(records.map(\.totalMs)) {
             parts.append("median \(median) ms")
         }
-        let corrected = records.compactMap { record in
-            record.correctedText.map { (record.cleanedText, $0) }
+        // Rephrasings are the user changing their mind, not a model error;
+        // scoring them would punish the models for obedience.
+        let corrected = records.compactMap { record -> (String, String)? in
+            guard let correction = record.correctedText else { return nil }
+            let blame = CorrectionBlame.classify(
+                raw: record.rawTranscript, cleaned: record.cleanedText, corrected: correction
+            )
+            guard blame != .rephrased else { return nil }
+            return (record.cleanedText, correction)
         }
         if !corrected.isEmpty {
             let average = corrected
@@ -283,6 +290,15 @@ private struct HistoryRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
+                Text(
+                    CorrectionBlame.classify(
+                        raw: record.rawTranscript,
+                        cleaned: record.cleanedText,
+                        corrected: corrected
+                    ).explanation
+                )
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
             }
         } else {
             Button("Mark correction…") {

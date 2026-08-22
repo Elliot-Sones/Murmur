@@ -63,4 +63,12 @@ final class CleanupPromptBuilderTests: XCTestCase {
     func testInstructionsOmitDestinationWhenAbsent() {
         XCTAssertFalse(builder.instructions().contains("Destination"))
     }
+
+    func testDictionaryRuleForbidsAddingTheWords() {
+        let instructions = builder.instructions(dictionary: ["NTangible", "Clutch"])
+        XCTAssertTrue(
+            instructions.contains("Never add them"),
+            "the model once recited the whole dictionary as its own trailing sentence"
+        )
+    }
 }

@@ -18,6 +18,9 @@ enum CleanupOutputSanitizer {
         var text = output.trimmingCharacters(in: .whitespacesAndNewlines)
         text = stripCodeFences(text)
         text = stripPreambleLine(text, rawTranscript: rawTranscript)
+        if enforceWordOverlap {
+            text = stripEchoLines(text, rawTranscript: rawTranscript)
+        }
         text = stripWrappingQuotes(text)
         if enforceWordOverlap {
             // ASR never produces literal prompt delimiters; only an echoing
@@ -60,6 +63,24 @@ enum CleanupOutputSanitizer {
         lines.removeFirst()
         lines.removeLast()
         return lines.joined(separator: "\n")
+    }
+
+    /// Drops lines whose words the user mostly never spoke; the model once
+    /// recited the personal dictionary as an appended sentence, short enough
+    /// to slip past the whole-output overlap and length guards. Lines of
+    /// three or fewer words are kept: formatted list items ("1. Eggs") share
+    /// too few literal words with speech ("first eggs") to judge fairly.
+    private static func stripEchoLines(_ text: String, rawTranscript: String) -> String {
+        let lines = text.components(separatedBy: "\n")
+        guard lines.count > 1 else { return text }
+        let spokenWords = Set(WordErrorRate.normalize(rawTranscript))
+        return lines.filter { line in
+            let words = WordErrorRate.normalize(line)
+            guard words.count > 3 else { return true }
+            let overlap = words.filter { spokenWords.contains($0) }.count
+            return Double(overlap) / Double(words.count) >= 0.6
+        }
+        .joined(separator: "\n")
     }
 
     private static func stripPreambleLine(_ text: String, rawTranscript: String) -> String {

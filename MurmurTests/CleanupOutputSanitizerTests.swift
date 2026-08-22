@@ -149,4 +149,41 @@ final class CleanupOutputSanitizerTests: XCTestCase {
             "send it"
         )
     }
+
+    func testStripsAppendedLineTheUserNeverSpoke() {
+        let transcript = "What does it even mean? Like, what do we do with it? "
+            + "How do we distinguish me saying the wrong thing versus the voice model "
+            + "getting the wrong thing? Right? So I don't know."
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(
+                transcript + "\n\nIt is a NTangible, Clutch, NTerpret.",
+                rawTranscript: transcript
+            ),
+            transcript,
+            "the model recited the personal dictionary as a trailing sentence; a short appended line passes the whole-output guards"
+        )
+    }
+
+    func testKeepsMultiLineOutputMadeOfSpokenWords() {
+        let transcript = "shopping list first eggs second milk third bread"
+        let formatted = "Shopping list:\n1. Eggs\n2. Milk\n3. Bread"
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(formatted, rawTranscript: transcript),
+            formatted,
+            "dictated lists legitimately become short multi-line output"
+        )
+    }
+
+    func testRewritePathKeepsNovelLines() {
+        let output = "Rewritten intro.\nA second novel line written by the rewrite model."
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(
+                output,
+                rawTranscript: "make this an intro with a second line",
+                enforceWordOverlap: false
+            ),
+            output,
+            "command-mode rewrites legitimately produce lines of new words"
+        )
+    }
 }
