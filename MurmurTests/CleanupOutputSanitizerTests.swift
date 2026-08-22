@@ -150,6 +150,42 @@ final class CleanupOutputSanitizerTests: XCTestCase {
         )
     }
 
+    func testSummarizedOutputFallsBackToRaw() {
+        let transcript = "So basically what I am trying to say here is that the parser fails "
+            + "because the buffer gets reused before the copy finishes and that is why "
+            + "we see the corruption only under load in the second pass"
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(
+                "The parser fails because the buffer gets reused.",
+                rawTranscript: transcript
+            ),
+            transcript,
+            "a summary is built from the speaker's own words, so only a length floor catches it"
+        )
+    }
+
+    func testFillerRemovalShrinkageIsStillAccepted() {
+        let transcript = "so um basically the uh parser fails because like the buffer gets reused before the copy finishes"
+        let cleaned = "Basically, the parser fails because the buffer gets reused before the copy finishes."
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(cleaned, rawTranscript: transcript),
+            cleaned,
+            "dropping um, uh, like, and so is the cleanup's whole job"
+        )
+    }
+
+    func testRewritePathMayShortenFreely() {
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitize(
+                "Shorter now.",
+                rawTranscript: "please make this whole long selected paragraph much shorter now",
+                enforceWordOverlap: false
+            ),
+            "Shorter now.",
+            "command-mode rewrites legitimately condense"
+        )
+    }
+
     func testStripsAppendedLineTheUserNeverSpoke() {
         let transcript = "What does it even mean? Like, what do we do with it? "
             + "How do we distinguish me saying the wrong thing versus the voice model "

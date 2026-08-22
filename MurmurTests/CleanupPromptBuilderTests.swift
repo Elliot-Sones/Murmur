@@ -64,6 +64,14 @@ final class CleanupPromptBuilderTests: XCTestCase {
         XCTAssertFalse(builder.instructions().contains("Destination"))
     }
 
+    func testInstructionsForbidSummarizing() {
+        let instructions = builder.instructions().lowercased()
+        XCTAssertTrue(
+            instructions.contains("never shorten, summarize, or condense"),
+            "the model summarized dictations and dropped whole explanations"
+        )
+    }
+
     func testDictionaryRuleForbidsAddingTheWords() {
         let instructions = builder.instructions(dictionary: ["NTangible", "Clutch"])
         XCTAssertTrue(

@@ -37,10 +37,13 @@ enum CleanupOutputSanitizer {
         return result
     }
 
-    /// Cleanup may only remove or fix words. Two independent checks:
-    /// nearly every output word must come from the transcript, and the output
-    /// must not be meaningfully longer than what was spoken. An answer that
-    /// quotes the question passes the first check but never the second.
+    /// Cleanup may only remove fillers or fix words. Three independent
+    /// checks: nearly every output word must come from the transcript, the
+    /// output must not be meaningfully longer than what was spoken (an
+    /// answer that quotes the question passes the first check but never
+    /// this one), and it must not be meaningfully shorter either (a summary
+    /// is built entirely from the speaker's own words, so only a length
+    /// floor catches it).
     private static func isOffScript(_ output: String, rawTranscript: String) -> Bool {
         let spoken = WordErrorRate.normalize(rawTranscript)
         let outputWords = WordErrorRate.normalize(output)
@@ -51,7 +54,12 @@ enum CleanupOutputSanitizer {
         if Double(kept) / Double(outputWords.count) < 0.6 { return true }
 
         let allowedLength = Int(Double(spoken.count) * 1.3) + 2
-        return outputWords.count > allowedLength
+        if outputWords.count > allowedLength { return true }
+
+        // Filler removal drops a handful of words; summarizing drops far
+        // more. Past the allowance, keep the speaker's full words instead.
+        let dropped = Double(spoken.count - outputWords.count)
+        return dropped > max(3, Double(spoken.count) * 0.3)
     }
 
     private static func stripCodeFences(_ text: String) -> String {
