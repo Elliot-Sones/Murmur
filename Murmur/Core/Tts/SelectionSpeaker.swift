@@ -45,12 +45,19 @@ final class SelectionSpeaker {
         log.notice("speak-on-highlight off")
     }
 
+    /// True while a hotkey capture is in flight. Concurrent captures race
+    /// on the shared pasteboard and each other's snapshot restores.
+    @ObservationIgnored private var capturing = false
+
     /// Option+Esc: speak whatever is selected right now, in any app.
     /// Uses the synthetic Cmd+C fallback when AX can't see the selection
     /// (Warp, some browsers), so it works where auto-speak can't. Runs
     /// regardless of the pill toggle; the keypress itself is the consent.
     func speakCurrentSelection() {
+        guard !capturing else { return }
+        capturing = true
         Task { @MainActor in
+            defer { capturing = false }
             let viaAX = SelectionCapturer.axSelectedText()
             let text = (await SelectionCapturer.capture())?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

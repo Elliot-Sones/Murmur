@@ -205,6 +205,12 @@ final class HotkeyEventClassifierTests: XCTestCase {
         )
         XCTAssertFalse(
             HotkeyEventClassifier.isSpeakSelectionHotkey(
+                type: .keyDown, keyCode: 53, flags: .maskAlternate, isAutorepeat: true
+            ),
+            "holding the combo must fire once, not once per key repeat"
+        )
+        XCTAssertFalse(
+            HotkeyEventClassifier.isSpeakSelectionHotkey(
                 type: .keyUp, keyCode: 53, flags: .maskAlternate
             )
         )

@@ -20,9 +20,10 @@ enum HotkeyEventClassifier {
     /// selection aloud, with the copy fallback for AX-blind apps.
     /// Cmd/Ctrl variants are excluded; Cmd+Option+Esc is Force Quit.
     static func isSpeakSelectionHotkey(
-        type: CGEventType, keyCode: Int64, flags: CGEventFlags
+        type: CGEventType, keyCode: Int64, flags: CGEventFlags, isAutorepeat: Bool = false
     ) -> Bool {
         type == .keyDown
+            && !isAutorepeat
             && keyCode == escapeKeyCode
             && flags.contains(.maskAlternate)
             && !flags.contains(.maskCommand)

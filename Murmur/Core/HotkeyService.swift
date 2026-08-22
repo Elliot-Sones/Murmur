@@ -80,7 +80,8 @@ final class HotkeyService {
         if HotkeyEventClassifier.isSpeakSelectionHotkey(
             type: type,
             keyCode: event.getIntegerValueField(.keyboardEventKeycode),
-            flags: event.flags
+            flags: event.flags,
+            isAutorepeat: event.getIntegerValueField(.keyboardEventAutorepeat) == 1
         ), !machine.isCapturing, !commandMachine.isCapturing {
             SelectionSpeaker.shared.speakCurrentSelection()
             return true

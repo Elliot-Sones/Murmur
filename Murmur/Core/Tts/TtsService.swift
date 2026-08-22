@@ -59,8 +59,11 @@ final class TtsService {
                 return .failure("Voice server error (\(status)). Try again.")
             }
             return .audio(data)
-        } catch {
+        } catch let error as URLError where error.code == .cannotConnectToHost || error.code == .cannotFindHost {
             return .failure("Voice server not running. Start it with `make tts-serve`.")
+        } catch {
+            log.error("tts request failed: \(error, privacy: .public)")
+            return .failure("Voice synthesis failed; try again.")
         }
     }
 }

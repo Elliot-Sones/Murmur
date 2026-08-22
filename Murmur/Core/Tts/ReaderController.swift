@@ -28,7 +28,7 @@ final class ReaderController: NSObject, AVAudioPlayerDelegate {
 
     @ObservationIgnored private var player: AVAudioPlayer?
     @ObservationIgnored private var cache: [Int: Data] = [:]
-    @ObservationIgnored private var fetching: Set<Int> = []
+    @ObservationIgnored private var fetchTasks: [Int: Task<Void, Never>] = [:]
     /// Bumped on every start/stop; stale synthesis tasks check it and bail.
     @ObservationIgnored private var generation = 0
     /// How many sentences to synthesize ahead of the one playing.
@@ -82,6 +82,10 @@ final class ReaderController: NSObject, AVAudioPlayerDelegate {
 
     func stop() {
         generation += 1
+        // Cancel in-flight synthesis; stale requests otherwise keep the
+        // single-worker server busy and starve the next reading.
+        for task in fetchTasks.values { task.cancel() }
+        fetchTasks = [:]
         player?.stop()
         player = nil
         sentences = []
@@ -90,7 +94,6 @@ final class ReaderController: NSObject, AVAudioPlayerDelegate {
         isActive = false
         errorMessage = nil
         cache = [:]
-        fetching = []
         PillPanelController.shared.layout()
     }
 
@@ -122,7 +125,7 @@ final class ReaderController: NSObject, AVAudioPlayerDelegate {
         // Not synthesized yet; playCurrent re-runs when the fetch lands.
         let gen = generation
         Task { @MainActor in
-            while generation == gen, cache[wanted] == nil, fetching.contains(wanted) {
+            while generation == gen, cache[wanted] == nil, fetchTasks[wanted] != nil {
                 try? await Task.sleep(for: .milliseconds(50))
             }
             guard generation == gen, isPlaying, index == wanted else { return }
@@ -135,14 +138,13 @@ final class ReaderController: NSObject, AVAudioPlayerDelegate {
     private func prefetch(from start: Int) {
         for i in start...min(start + prefetchDepth, sentences.count - 1) {
             let target = i
-            guard cache[target] == nil, !fetching.contains(target) else { continue }
-            fetching.insert(target)
+            guard cache[target] == nil, fetchTasks[target] == nil else { continue }
             let gen = generation
             let text = sentences[target]
-            Task { @MainActor in
+            fetchTasks[target] = Task { @MainActor in
                 let result = await TtsService.shared.synthesize(text)
-                guard generation == gen else { return }
-                fetching.remove(target)
+                guard generation == gen, !Task.isCancelled else { return }
+                fetchTasks[target] = nil
                 switch result {
                 case .audio(let data):
                     cache[target] = data
