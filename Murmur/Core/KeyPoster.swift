@@ -16,4 +16,18 @@ enum KeyPoster {
             event.post(tap: .cghidEventTap)
         }
     }
+
+    /// Waits until the user's physical modifier keys are all up. A synthetic
+    /// Cmd+key posted while a hotkey's modifier is still held reaches the app
+    /// with that modifier merged in (combined session state), turning Cmd+C
+    /// into Cmd+Opt+C, which most apps ignore.
+    static func waitForModifierRelease(timeoutMs: Int = 800) async {
+        let modifiers: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
+        let deadline = ContinuousClock.now + .milliseconds(timeoutMs)
+        while ContinuousClock.now < deadline {
+            let flags = CGEventSource.flagsState(.combinedSessionState)
+            if flags.intersection(modifiers).isEmpty { return }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+    }
 }

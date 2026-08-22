@@ -51,10 +51,11 @@ final class SelectionSpeaker {
     /// regardless of the pill toggle; the keypress itself is the consent.
     func speakCurrentSelection() {
         Task { @MainActor in
+            let viaAX = SelectionCapturer.axSelectedText()
             let text = (await SelectionCapturer.capture())?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            log.notice("hotkey speak: ax \(viaAX?.count ?? -1, privacy: .public) chars, final \(text.count, privacy: .public) chars")
             guard !text.isEmpty else {
-                log.notice("hotkey speak: no selection found")
                 DictationController.shared.surfaceNotice("No selected text to speak.")
                 return
             }

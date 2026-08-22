@@ -128,12 +128,21 @@ enum SelectionCapturer {
     }
 
     private static func pasteboardCopy() async -> String? {
+        // A hotkey's own modifiers must be up before Cmd+C posts, or the
+        // app sees Cmd+Opt+C and copies nothing.
+        await KeyPoster.waitForModifierRelease()
+
         let pasteboard = NSPasteboard.general
         let snapshot = PasteboardSnapshot(capturing: pasteboard)
         let changeCountBefore = pasteboard.changeCount
 
         KeyPoster.postCommandKey(KeyPoster.cKey)
-        try? await Task.sleep(for: .milliseconds(150))
+        // Poll rather than one fixed sleep; some apps take a few hundred ms
+        // to service a copy.
+        let deadline = ContinuousClock.now + .milliseconds(600)
+        while pasteboard.changeCount == changeCountBefore, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(25))
+        }
 
         defer { snapshot.restore(to: pasteboard) }
         guard pasteboard.changeCount != changeCountBefore else { return nil }
