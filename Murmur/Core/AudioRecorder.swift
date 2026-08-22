@@ -1,4 +1,5 @@
 import AVFoundation
+import os
 
 enum RecorderError: Error {
     case noInputDevice
@@ -12,6 +13,10 @@ final class AudioRecorder: @unchecked Sendable {
     /// (AirPods ↔ Mac mic) the tap then fails with a format mismatch and
     /// captures nothing. Only touched from MainActor.
     private var engine: AVAudioEngine?
+    private var configChangeObserver: (any NSObjectProtocol)?
+    private var rebuildTask: Task<Void, Never>?
+    private var voiceProcessing = false
+    private let log = Logger(subsystem: "com.elliot.Murmur", category: "audio")
     private let lock = NSLock()
     private var samples: [Float] = []
     private var converter: AVAudioConverter?
@@ -24,9 +29,16 @@ final class AudioRecorder: @unchecked Sendable {
 
     @MainActor
     func start(voiceProcessing: Bool) throws {
+        rebuildTask?.cancel()
+        rebuildTask = nil
         lock.withLock { samples.removeAll(keepingCapacity: true) }
         tearDownEngine()
+        self.voiceProcessing = voiceProcessing
+        try startEngine()
+    }
 
+    @MainActor
+    private func startEngine() throws {
         let engine = AVAudioEngine()
         let input = engine.inputNode
         try? input.setVoiceProcessingEnabled(voiceProcessing)
@@ -57,16 +69,63 @@ final class AudioRecorder: @unchecked Sendable {
         engine.prepare()
         try engine.start()
         self.engine = engine
+
+        // The engine stops itself and posts this notification when the input
+        // device changes under it (headphones connecting mid-recording switch
+        // the default input). Rebuild against the new device so the rest of
+        // the utterance is captured; already-accumulated samples are kept.
+        let engineID = ObjectIdentifier(engine)
+        configChangeObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleConfigurationChange(engineID: engineID)
+            }
+        }
+    }
+
+    @MainActor
+    private func handleConfigurationChange(engineID: ObjectIdentifier) {
+        guard let engine, ObjectIdentifier(engine) == engineID else { return }
+        log.notice("input configuration changed; rebuilding audio engine")
+        rebuild(attempt: 1)
+    }
+
+    /// A newly connected device can report a dead format (sample rate 0) while
+    /// the route transition is still in flight, so retry briefly.
+    @MainActor
+    private func rebuild(attempt: Int) {
+        tearDownEngine()
+        do {
+            try startEngine()
+            log.notice("audio engine rebuilt after input change")
+        } catch {
+            guard attempt < 5 else {
+                log.error("audio engine rebuild failed after input change; giving up")
+                return
+            }
+            rebuildTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled else { return }
+                self?.rebuild(attempt: attempt + 1)
+            }
+        }
     }
 
     @MainActor
     func stop() -> [Float] {
+        rebuildTask?.cancel()
+        rebuildTask = nil
         tearDownEngine()
         return lock.withLock { samples }
     }
 
     @MainActor
     private func tearDownEngine() {
+        if let configChangeObserver {
+            NotificationCenter.default.removeObserver(configChangeObserver)
+            self.configChangeObserver = nil
+        }
         guard let engine else { return }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
