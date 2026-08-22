@@ -35,6 +35,43 @@ final class SentenceSplitterTests: XCTestCase {
         XCTAssertEqual(SentenceSplitter.split("Hello"), ["Hello"])
         XCTAssertEqual(SentenceSplitter.split(""), [])
     }
+
+    func testFastStartSplitsALongOpenerAtItsFirstClause() {
+        let long = "When the opening sentence rambles on for quite a while, the reader waits too long for first audio."
+        let result = SentenceSplitter.fastStart([long, "Second."])
+        XCTAssertEqual(
+            result,
+            [
+                "When the opening sentence rambles on for quite a while,",
+                "the reader waits too long for first audio.",
+                "Second.",
+            ]
+        )
+    }
+
+    func testFastStartLeavesShortOpenersAlone() {
+        XCTAssertEqual(
+            SentenceSplitter.fastStart(["Short opener.", "Second."]),
+            ["Short opener.", "Second."]
+        )
+    }
+
+    func testFastStartWithoutClauseBoundaryLeavesItAlone() {
+        let long = String(repeating: "word ", count: 20).trimmingCharacters(in: .whitespaces)
+        XCTAssertEqual(SentenceSplitter.fastStart([long]), [long])
+    }
+
+    func testFastStartIgnoresTooEarlyCommas() {
+        let long = "Yes, this opener has an early comma but no later clause boundary at all in the rest of it"
+        XCTAssertEqual(
+            SentenceSplitter.fastStart([long]), [long],
+            "splitting after two words would sound choppy, not fast"
+        )
+    }
+
+    func testFastStartOnEmptyListIsEmpty() {
+        XCTAssertEqual(SentenceSplitter.fastStart([]), [])
+    }
 }
 
 final class ReaderSpeedTests: XCTestCase {

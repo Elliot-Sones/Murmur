@@ -30,6 +30,20 @@ enum HotkeyEventClassifier {
             && !flags.contains(.maskControl)
     }
 
+    /// Ctrl+Esc flips speak-on-highlight mode, exactly like clicking the
+    /// pill. Plain Esc stops or cancels things; Option+Esc speaks on demand.
+    static func isToggleSpeakModeHotkey(
+        type: CGEventType, keyCode: Int64, flags: CGEventFlags, isAutorepeat: Bool = false
+    ) -> Bool {
+        type == .keyDown
+            && !isAutorepeat
+            && keyCode == escapeKeyCode
+            && flags.contains(.maskControl)
+            && !flags.contains(.maskCommand)
+            && !flags.contains(.maskAlternate)
+            && !flags.contains(.maskShift)
+    }
+
     /// Classifies events for the command-mode hotkey. Escape is handled by
     /// `classify`; this only reports the command key itself.
     static func classifyCommand(

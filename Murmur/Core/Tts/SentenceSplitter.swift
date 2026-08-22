@@ -9,6 +9,25 @@ enum SentenceSplitter {
         text.components(separatedBy: .newlines).flatMap(splitLine)
     }
 
+    /// Halves time-to-first-audio for long openers: a first sentence past
+    /// the threshold is split at its first clause boundary (comma/semicolon/
+    /// colon) so a short head synthesizes fast while the tail follows.
+    static func fastStart(_ sentences: [String], threshold: Int = 60) -> [String] {
+        guard let first = sentences.first, first.count > threshold else { return sentences }
+        // A boundary before this sounds choppy rather than fast.
+        let minimumHead = 20
+        let boundaries: Set<Character> = [",", ";", ":"]
+        guard let cut = first.indices.first(where: { index in
+            boundaries.contains(first[index])
+                && first.distance(from: first.startIndex, to: index) >= minimumHead
+        }) else { return sentences }
+        let head = String(first[...cut])
+        let tail = String(first[first.index(after: cut)...])
+            .trimmingCharacters(in: .whitespaces)
+        guard !tail.isEmpty else { return sentences }
+        return [head, tail] + sentences.dropFirst()
+    }
+
     private static func splitLine(_ line: String) -> [String] {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return [] }

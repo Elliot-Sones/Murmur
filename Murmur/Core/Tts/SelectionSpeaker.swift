@@ -40,7 +40,7 @@ final class SelectionSpeaker {
         logic = SelectionWatcherLogic()
         clipboardLogic = ClipboardWatchLogic()
         lastSeen = nil
-        timer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
             Task { @MainActor in SelectionSpeaker.shared.poll() }
         }
         log.notice("speak-on-highlight on, polling")
@@ -96,7 +96,7 @@ final class SelectionSpeaker {
     func mouseUpNudge() {
         guard enabled else { return }
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(120))
+            try? await Task.sleep(for: .milliseconds(50))
             guard let selection = readSelection() else { return }
             if let text = logic.settle(selection) {
                 speak(text)

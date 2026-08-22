@@ -91,7 +91,15 @@ final class HotkeyService {
         let commandChoice = SettingsStore.shared.commandHotkey
         let now = ProcessInfo.processInfo.systemUptime
 
-        // Escape cancels whichever machine is currently capturing.
+        if HotkeyEventClassifier.isToggleSpeakModeHotkey(
+            type: type, keyCode: keyCode, flags: event.flags, isAutorepeat: isAutorepeat
+        ), !machine.isCapturing, !commandMachine.isCapturing {
+            SelectionSpeaker.shared.enabled.toggle()
+            return true
+        }
+
+        // Escape cancels whichever machine is currently capturing, and
+        // otherwise silences an active reading.
         if type == .keyDown, keyCode == HotkeyEventClassifier.escapeKeyCode {
             if machine.isCapturing {
                 dispatch(machine.handle(.escapeDown), mode: .insert)
@@ -99,6 +107,11 @@ final class HotkeyService {
             }
             if commandMachine.isCapturing {
                 dispatch(commandMachine.handle(.escapeDown), mode: .command)
+                return true
+            }
+            if event.flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift]).isEmpty,
+                ReaderController.shared.isActive {
+                ReaderController.shared.stop()
                 return true
             }
             return false

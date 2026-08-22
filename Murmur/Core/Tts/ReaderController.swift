@@ -54,7 +54,7 @@ final class ReaderController {
 
     func start(_ text: String) {
         stop()
-        let parts = SentenceSplitter.split(text)
+        let parts = SentenceSplitter.fastStart(SentenceSplitter.split(text))
         guard !parts.isEmpty else { return }
         generation += 1
         sentences = parts
@@ -114,7 +114,7 @@ final class ReaderController {
             if newIndex >= sentences.count { stop() }
             return
         }
-        stopPlayback()
+        stopPlayback(keepEngine: true)
         index = newIndex
         if isPlaying { playCurrent() }
     }
@@ -211,13 +211,14 @@ final class ReaderController {
         engine.connect(timePitch, to: engine.mainMixerNode, format: format)
     }
 
-    private func stopPlayback() {
+    private func stopPlayback(keepEngine: Bool = false) {
         // Bump first: node.stop() fires pending completion callbacks, and a
         // stale token keeps them from advancing the sentence index.
         playToken += 1
         playerNode.stop()
         pausedMidSentence = false
-        if engine.isRunning { engine.stop() }
+        // Skips keep the engine hot; restarting it costs audible latency.
+        if !keepEngine, engine.isRunning { engine.stop() }
     }
 
     private func sentenceFinished(token: Int) {

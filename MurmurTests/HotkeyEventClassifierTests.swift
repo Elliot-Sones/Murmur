@@ -232,6 +232,38 @@ final class HotkeyEventClassifierTests: XCTestCase {
         )
     }
 
+    func testControlEscapeTogglesListeningMode() {
+        XCTAssertTrue(
+            HotkeyEventClassifier.isToggleSpeakModeHotkey(
+                type: .keyDown, keyCode: 53, flags: .maskControl
+            )
+        )
+        XCTAssertFalse(
+            HotkeyEventClassifier.isToggleSpeakModeHotkey(type: .keyDown, keyCode: 53, flags: []),
+            "plain Esc stops or cancels; it must not flip the mode"
+        )
+        XCTAssertFalse(
+            HotkeyEventClassifier.isToggleSpeakModeHotkey(
+                type: .keyDown, keyCode: 53, flags: [.maskControl, .maskAlternate]
+            )
+        )
+        XCTAssertFalse(
+            HotkeyEventClassifier.isToggleSpeakModeHotkey(
+                type: .keyDown, keyCode: 53, flags: .maskControl, isAutorepeat: true
+            )
+        )
+        XCTAssertFalse(
+            HotkeyEventClassifier.isToggleSpeakModeHotkey(
+                type: .keyUp, keyCode: 53, flags: .maskControl
+            )
+        )
+        XCTAssertFalse(
+            HotkeyEventClassifier.isToggleSpeakModeHotkey(
+                type: .keyDown, keyCode: 0, flags: .maskControl
+            )
+        )
+    }
+
     func testCommandControlOCombo() {
         XCTAssertEqual(
             HotkeyEventClassifier.classifyCommand(
