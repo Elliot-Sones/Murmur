@@ -7,7 +7,11 @@ enum RecorderError: Error {
 /// Captures microphone audio and accumulates 16 kHz mono Float32 samples in memory.
 /// The tap callback runs on a CoreAudio queue; shared state is lock-guarded.
 final class AudioRecorder: @unchecked Sendable {
-    private let engine = AVAudioEngine()
+    /// Fresh per recording. A reused engine keeps the input format of
+    /// whatever device was live before; after the default input changes
+    /// (AirPods ↔ Mac mic) the tap then fails with a format mismatch and
+    /// captures nothing. Only touched from MainActor.
+    private var engine: AVAudioEngine?
     private let lock = NSLock()
     private var samples: [Float] = []
     private var converter: AVAudioConverter?
@@ -21,9 +25,10 @@ final class AudioRecorder: @unchecked Sendable {
     @MainActor
     func start(voiceProcessing: Bool) throws {
         lock.withLock { samples.removeAll(keepingCapacity: true) }
+        tearDownEngine()
 
+        let engine = AVAudioEngine()
         let input = engine.inputNode
-        engine.disconnectNodeOutput(input)
         try? input.setVoiceProcessingEnabled(voiceProcessing)
 
         let inputFormat = input.outputFormat(forBus: 0)
@@ -51,13 +56,21 @@ final class AudioRecorder: @unchecked Sendable {
         input.installTap(onBus: 0, bufferSize: 4096, format: inputFormat, block: tapBlock)
         engine.prepare()
         try engine.start()
+        self.engine = engine
     }
 
     @MainActor
     func stop() -> [Float] {
+        tearDownEngine()
+        return lock.withLock { samples }
+    }
+
+    @MainActor
+    private func tearDownEngine() {
+        guard let engine else { return }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
-        return lock.withLock { samples }
+        self.engine = nil
     }
 
     /// Copy of the samples accumulated so far; safe to call while recording.
