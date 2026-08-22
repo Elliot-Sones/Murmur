@@ -1,0 +1,88 @@
+<svg width="1200" height="300" viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Murmur: on-device dictation and text to speech for macOS">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="0.55" stop-color="#151a3a"/>
+      <stop offset="1" stop-color="#1e1145"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="word" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e0f2fe"/>
+      <stop offset="1" stop-color="#ddd6fe"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="300" rx="24" fill="url(#bg)"/>
+    <rect x="60.0" y="144.0" width="7" height="12.0" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="77.1" y="138.1" width="7" height="23.8" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="94.3" y="135.1" width="7" height="29.9" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="111.4" y="131.6" width="7" height="36.8" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="128.6" y="140.6" width="7" height="18.7" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="145.7" y="128.8" width="7" height="42.4" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="162.9" y="115.3" width="7" height="69.5" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="180.0" y="125.9" width="7" height="48.2" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="197.1" y="120.2" width="7" height="59.6" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="214.3" y="126.6" width="7" height="46.7" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="231.4" y="134.7" width="7" height="30.5" rx="3.5" fill="url(#bar)" opacity="0.64"/>
+  <rect x="248.6" y="103.5" width="7" height="93.0" rx="3.5" fill="url(#bar)" opacity="0.61"/>
+  <rect x="265.7" y="105.4" width="7" height="89.1" rx="3.5" fill="url(#bar)" opacity="0.57"/>
+  <rect x="282.9" y="121.6" width="7" height="56.8" rx="3.5" fill="url(#bar)" opacity="0.54"/>
+  <rect x="300.0" y="111.7" width="7" height="76.6" rx="3.5" fill="url(#bar)" opacity="0.51"/>
+  <rect x="317.1" y="128.8" width="7" height="42.4" rx="3.5" fill="url(#bar)" opacity="0.48"/>
+  <rect x="334.3" y="115.8" width="7" height="68.5" rx="3.5" fill="url(#bar)" opacity="0.45"/>
+  <rect x="351.4" y="83.4" width="7" height="133.3" rx="3.5" fill="url(#bar)" opacity="0.42"/>
+  <rect x="368.6" y="111.0" width="7" height="77.9" rx="3.5" fill="url(#bar)" opacity="0.39"/>
+  <rect x="385.7" y="116.7" width="7" height="66.7" rx="3.5" fill="url(#bar)" opacity="0.35"/>
+  <rect x="402.9" y="109.8" width="7" height="80.4" rx="3.5" fill="url(#bar)" opacity="0.32"/>
+  <rect x="420.0" y="125.5" width="7" height="49.0" rx="3.5" fill="url(#bar)" opacity="0.29"/>
+  <rect x="437.1" y="89.1" width="7" height="121.9" rx="3.5" fill="url(#bar)" opacity="0.26"/>
+  <rect x="454.3" y="82.5" width="7" height="135.0" rx="3.5" fill="url(#bar)" opacity="0.23"/>
+  <rect x="471.4" y="122.0" width="7" height="56.0" rx="3.5" fill="url(#bar)" opacity="0.20"/>
+  <rect x="488.6" y="108.8" width="7" height="82.3" rx="3.5" fill="url(#bar)" opacity="0.17"/>
+  <rect x="505.7" y="111.8" width="7" height="76.5" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="522.9" y="111.1" width="7" height="77.9" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="540.0" y="71.4" width="7" height="157.3" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="557.1" y="100.9" width="7" height="98.3" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="574.3" y="125.7" width="7" height="48.5" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="591.4" y="101.3" width="7" height="97.3" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="608.6" y="112.5" width="7" height="74.9" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="625.7" y="91.9" width="7" height="116.2" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="642.9" y="75.5" width="7" height="149.1" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="660.0" y="123.8" width="7" height="52.4" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="677.1" y="117.9" width="7" height="64.1" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="694.3" y="99.0" width="7" height="102.1" rx="3.5" fill="url(#bar)" opacity="0.16"/>
+  <rect x="711.4" y="109.3" width="7" height="81.3" rx="3.5" fill="url(#bar)" opacity="0.17"/>
+  <rect x="728.6" y="81.5" width="7" height="137.0" rx="3.5" fill="url(#bar)" opacity="0.20"/>
+  <rect x="745.7" y="98.7" width="7" height="102.6" rx="3.5" fill="url(#bar)" opacity="0.23"/>
+  <rect x="762.9" y="134.9" width="7" height="30.2" rx="3.5" fill="url(#bar)" opacity="0.26"/>
+  <rect x="780.0" y="105.9" width="7" height="88.2" rx="3.5" fill="url(#bar)" opacity="0.29"/>
+  <rect x="797.1" y="103.3" width="7" height="93.4" rx="3.5" fill="url(#bar)" opacity="0.32"/>
+  <rect x="814.3" y="105.1" width="7" height="89.9" rx="3.5" fill="url(#bar)" opacity="0.35"/>
+  <rect x="831.4" y="88.8" width="7" height="122.4" rx="3.5" fill="url(#bar)" opacity="0.39"/>
+  <rect x="848.6" y="124.8" width="7" height="50.3" rx="3.5" fill="url(#bar)" opacity="0.42"/>
+  <rect x="865.7" y="130.3" width="7" height="39.4" rx="3.5" fill="url(#bar)" opacity="0.45"/>
+  <rect x="882.9" y="101.4" width="7" height="97.3" rx="3.5" fill="url(#bar)" opacity="0.48"/>
+  <rect x="900.0" y="112.2" width="7" height="75.6" rx="3.5" fill="url(#bar)" opacity="0.51"/>
+  <rect x="917.1" y="106.4" width="7" height="87.2" rx="3.5" fill="url(#bar)" opacity="0.54"/>
+  <rect x="934.3" y="109.8" width="7" height="80.4" rx="3.5" fill="url(#bar)" opacity="0.57"/>
+  <rect x="951.4" y="138.6" width="7" height="22.8" rx="3.5" fill="url(#bar)" opacity="0.61"/>
+  <rect x="968.6" y="121.3" width="7" height="57.4" rx="3.5" fill="url(#bar)" opacity="0.64"/>
+  <rect x="985.7" y="110.5" width="7" height="79.1" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="1002.9" y="122.9" width="7" height="54.2" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="1020.0" y="117.7" width="7" height="64.6" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="1037.1" y="131.3" width="7" height="37.5" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="1054.3" y="139.4" width="7" height="21.3" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="1071.4" y="124.7" width="7" height="50.5" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="1088.6" y="129.8" width="7" height="40.3" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="1105.7" y="135.9" width="7" height="28.1" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="1122.9" y="138.0" width="7" height="24.1" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <rect x="1140.0" y="144.0" width="7" height="12.0" rx="3.5" fill="url(#bar)" opacity="0.66"/>
+  <text x="600.0" y="158" text-anchor="middle"
+    font-family="ui-rounded, -apple-system, 'SF Pro Rounded', 'Segoe UI', Helvetica, Arial, sans-serif"
+    font-size="92" font-weight="800" letter-spacing="2" fill="url(#word)">Murmur</text>
+  <text x="600.0" y="208" text-anchor="middle"
+    font-family="-apple-system, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif"
+    font-size="22" font-weight="500" letter-spacing="0.5" fill="#93a4c8">Speak. It types. Highlight. It speaks. Entirely on your Mac.</text>
+</svg>
