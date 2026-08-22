@@ -166,7 +166,7 @@ final class DictationController {
 
         var peak: Float = 0
         for sample in samples where abs(sample) > peak { peak = abs(sample) }
-        log.info("captured \(samples.count) samples, peak \(peak, format: .fixed(precision: 3))")
+        log.notice("captured \(samples.count) samples, peak \(peak, format: .fixed(precision: 3))")
 
         guard let startedAt, ContinuousClock.now - startedAt >= minimumUtterance else {
             state = .idle

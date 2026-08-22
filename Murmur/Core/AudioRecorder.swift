@@ -69,6 +69,7 @@ final class AudioRecorder: @unchecked Sendable {
         engine.prepare()
         try engine.start()
         self.engine = engine
+        log.notice("engine started: \(inputFormat.sampleRate, format: .fixed(precision: 0)) Hz, \(inputFormat.channelCount) ch, voiceProcessing \(self.voiceProcessing)")
 
         // The engine stops itself and posts this notification when the input
         // device changes under it (headphones connecting mid-recording switch
