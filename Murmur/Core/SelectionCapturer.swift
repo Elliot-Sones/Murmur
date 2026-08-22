@@ -19,6 +19,16 @@ enum SelectionCapturer {
         accessibilitySelectedText()
     }
 
+    /// True when the focused element is a text container: a place where a
+    /// copy plausibly means "copied text", as opposed to files or rows.
+    static func focusedElementIsTexty() -> Bool {
+        guard let focused = focusedElement() else { return false }
+        var roleRef: CFTypeRef?
+        AXUIElementCopyAttributeValue(focused, kAXRoleAttribute as CFString, &roleRef)
+        guard let role = roleRef as? String else { return false }
+        return role.contains("Text") || role == "AXWebArea" || role == "AXComboBox"
+    }
+
     /// One-line trace of every step of the AX read, for diagnosing apps
     /// where selection never surfaces.
     static func axTrace() -> String {
@@ -152,7 +162,10 @@ enum SelectionCapturer {
             try? await Task.sleep(for: .milliseconds(25))
         }
 
-        defer { snapshot.restore(to: pasteboard) }
+        defer {
+            snapshot.restore(to: pasteboard)
+            SelectionSpeaker.shared.ignoreOwnPasteboardChange()
+        }
         let changed = pasteboard.changeCount != changeCountBefore
         log.notice("copy fallback via \(method, privacy: .public): pasteboard \(changed ? "changed" : "unchanged", privacy: .public)")
         guard changed else { return nil }

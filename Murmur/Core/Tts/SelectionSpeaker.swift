@@ -13,8 +13,15 @@ final class SelectionSpeaker {
     private let log = Logger(subsystem: "com.elliot.Murmur", category: "speakSelection")
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var logic = SelectionWatcherLogic()
+    @ObservationIgnored private var clipboardLogic = ClipboardWatchLogic()
     /// Last raw AX value, for change-only diagnostics logging.
     @ObservationIgnored private var lastSeen: String??
+
+    /// Call after any programmatic pasteboard write (paste, restore) so the
+    /// clipboard watcher does not mistake it for a user copy.
+    func ignoreOwnPasteboardChange() {
+        clipboardLogic.ignore(changeCount: NSPasteboard.general.changeCount)
+    }
 
     var enabled: Bool = SettingsStore.shared.speakSelectionEnabled {
         didSet {
@@ -31,6 +38,7 @@ final class SelectionSpeaker {
     private func start() {
         guard timer == nil else { return }
         logic = SelectionWatcherLogic()
+        clipboardLogic = ClipboardWatchLogic()
         lastSeen = nil
         timer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
             Task { @MainActor in SelectionSpeaker.shared.poll() }
@@ -98,9 +106,28 @@ final class SelectionSpeaker {
 
     private func poll() {
         guard enabled else { return }
+        // A hotkey capture may be mid-Cmd+C; its pasteboard churn is not a
+        // user copy.
+        guard !capturing else { return }
         guard let selection = readSelection() else { return }
         if let text = logic.observe(selection) {
             speak(text)
+            return
+        }
+        // Copies in AX-blind text apps (Warp with a TUI) are the only way
+        // the user can hand us a selection there; speak them automatically.
+        let spoke = clipboardLogic.observe(
+            changeCount: NSPasteboard.general.changeCount,
+            axSeesSelection: selection?.isEmpty == false,
+            focusedRoleIsTexty: SelectionCapturer.focusedElementIsTexty()
+        )
+        if spoke,
+            let clip = NSPasteboard.general.string(forType: .string)?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            !clip.isEmpty,
+            let text = logic.settle(String(clip.prefix(SelectionWatcherLogic.maxCharacters))) {
+            log.notice("clipboard copy in AX-blind app (\(text.count, privacy: .public) chars)")
+            ReaderController.shared.start(text)
         }
     }
 

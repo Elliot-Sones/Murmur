@@ -14,11 +14,13 @@ final class TextInserter {
         let snapshot = PasteboardSnapshot(capturing: pasteboard)
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        SelectionSpeaker.shared.ignoreOwnPasteboardChange()
         KeyPoster.postCommandKey(KeyPoster.vKey)
 
         pendingRestore = Task {
             try? await Task.sleep(for: .milliseconds(restoreDelayMs))
             snapshot.restore(to: NSPasteboard.general)
+            SelectionSpeaker.shared.ignoreOwnPasteboardChange()
         }
     }
 }
