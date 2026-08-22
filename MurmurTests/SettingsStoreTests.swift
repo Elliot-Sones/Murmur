@@ -31,6 +31,9 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.ollamaModel, "")
         XCTAssertTrue(store.soundCuesEnabled)
         XCTAssertEqual(store.commandHotkey, .rightOption)
+        XCTAssertEqual(store.ttsEngine, .system, "read-back must work with zero downloads by default")
+        XCTAssertEqual(store.ttsKokoroVoice, "af_heart")
+        XCTAssertEqual(store.ttsQwenVoice, "Vivian")
     }
 
     @MainActor
@@ -57,6 +60,9 @@ final class SettingsStoreTests: XCTestCase {
         first.ollamaModel = "gemma4:latest"
         first.soundCuesEnabled = false
         first.commandHotkey = .controlO
+        first.ttsEngine = .chatterbox
+        first.ttsKokoroVoice = "bm_george"
+        first.ttsQwenVoice = "Ethan"
 
         let second = SettingsStore(defaults: defaults)
         XCTAssertEqual(second.hotkey, .rightCommand)
@@ -68,5 +74,8 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(second.ollamaModel, "gemma4:latest")
         XCTAssertFalse(second.soundCuesEnabled)
         XCTAssertEqual(second.commandHotkey, .controlO)
+        XCTAssertEqual(second.ttsEngine, .chatterbox)
+        XCTAssertEqual(second.ttsKokoroVoice, "bm_george")
+        XCTAssertEqual(second.ttsQwenVoice, "Ethan")
     }
 }

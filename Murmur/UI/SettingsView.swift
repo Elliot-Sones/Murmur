@@ -84,6 +84,37 @@ private struct GeneralSettingsTab: View {
                 }
             }
 
+            Section("Read back") {
+                Picker("Voice engine", selection: Binding(
+                    get: { settings.ttsEngine },
+                    set: { settings.ttsEngine = $0 }
+                )) {
+                    ForEach(TtsEngineChoice.allCases) { choice in
+                        Text(choice.displayName).tag(choice)
+                    }
+                }
+                if settings.ttsEngine == .kokoro {
+                    TextField("Kokoro voice", text: Binding(
+                        get: { settings.ttsKokoroVoice },
+                        set: { settings.ttsKokoroVoice = $0 }
+                    ))
+                    Text("Try af_heart, af_bella, am_michael, bf_emma, or bm_george. First use downloads the model.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if settings.ttsEngine == .qwen {
+                    TextField("Qwen voice", text: Binding(
+                        get: { settings.ttsQwenVoice },
+                        set: { settings.ttsQwenVoice = $0 }
+                    ))
+                }
+                if settings.ttsEngine.serverModel != nil {
+                    Text("Needs the local voice server: run `make tts-serve` in the Murmur folder.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section("Behavior") {
                 Toggle("Live preview in HUD while dictating", isOn: Binding(
                     get: { settings.streamingPreviewEnabled },

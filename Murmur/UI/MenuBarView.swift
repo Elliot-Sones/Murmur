@@ -22,6 +22,9 @@ struct MenuBarView: View {
             get: { settings.cleanupEnabled },
             set: { settings.cleanupEnabled = $0 }
         ))
+        if controller.lastRecord != nil {
+            Button("Speak Last Dictation") { controller.speakLastRecord() }
+        }
         Divider()
         Button("Settings…") { SettingsWindowController.shared.show() }
         Divider()

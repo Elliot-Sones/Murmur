@@ -395,6 +395,18 @@ final class DictationController {
         HistoryStore.shared.setVote(lastRecord, vote: lastRecord.vote == -1 ? 0 : -1)
     }
 
+    /// Reads the most recent dictation aloud with the configured voice.
+    func speakLastRecord() {
+        guard let lastRecord else { return }
+        let text = lastRecord.cleanedText
+        Task {
+            if let failure = await TtsService.shared.speakLatest(text) {
+                state = .notice(failure)
+                autoDismissNotice()
+            }
+        }
+    }
+
     private static func milliseconds(_ duration: Duration) -> Int {
         Int(duration.components.seconds * 1000)
             + Int(duration.components.attoseconds / 1_000_000_000_000_000)

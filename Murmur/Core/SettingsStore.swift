@@ -78,6 +78,9 @@ final class SettingsStore {
         static let ollamaModel = "ollamaModel"
         static let soundCues = "soundCuesEnabled"
         static let commandHotkey = "commandHotkey"
+        static let ttsEngine = "ttsEngine"
+        static let ttsKokoroVoice = "ttsKokoroVoice"
+        static let ttsQwenVoice = "ttsQwenVoice"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -115,6 +118,15 @@ final class SettingsStore {
     var restoreDelayMs: Int {
         didSet { defaults.set(restoreDelayMs, forKey: Key.restoreDelay) }
     }
+    var ttsEngine: TtsEngineChoice {
+        didSet { defaults.set(ttsEngine.rawValue, forKey: Key.ttsEngine) }
+    }
+    var ttsKokoroVoice: String {
+        didSet { defaults.set(ttsKokoroVoice, forKey: Key.ttsKokoroVoice) }
+    }
+    var ttsQwenVoice: String {
+        didSet { defaults.set(ttsQwenVoice, forKey: Key.ttsQwenVoice) }
+    }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -133,5 +145,8 @@ final class SettingsStore {
             rawValue: defaults.string(forKey: Key.commandHotkey) ?? ""
         ) ?? .rightOption
         restoreDelayMs = defaults.object(forKey: Key.restoreDelay) as? Int ?? 250
+        ttsEngine = TtsEngineChoice(rawValue: defaults.string(forKey: Key.ttsEngine) ?? "") ?? .system
+        ttsKokoroVoice = defaults.string(forKey: Key.ttsKokoroVoice) ?? "af_heart"
+        ttsQwenVoice = defaults.string(forKey: Key.ttsQwenVoice) ?? "Vivian"
     }
 }

@@ -25,5 +25,8 @@ bench: generate
 	xcodebuild -project $(APP).xcodeproj -scheme murmur-bench -configuration Debug -derivedDataPath $(DERIVED) -quiet build
 	$(DERIVED)/Build/Products/Debug/murmur-bench bench/fixtures $(BENCH_FLAGS)
 
+tts-serve:
+	cd tts-server && .venv/bin/python -m mlx_audio.server --host 127.0.0.1 --port 8000
+
 clean:
 	rm -rf $(DERIVED) $(APP).xcodeproj
