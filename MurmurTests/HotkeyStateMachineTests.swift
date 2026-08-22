@@ -10,35 +10,32 @@ final class HotkeyStateMachineTests: XCTestCase {
         XCTAssertFalse(machine.isCapturing)
     }
 
-    func testShortTapAloneCancelsAfterWindow() {
+    func testTapTogglesOnAndKeepsListening() {
         var machine = HotkeyStateMachine()
         XCTAssertEqual(machine.handle(.hotkeyDown(0)), [.startRecording])
-        XCTAssertEqual(machine.handle(.hotkeyUp(0.1)), [])
-        XCTAssertTrue(machine.isCapturing, "still waiting for a possible second tap")
-        XCTAssertEqual(machine.handle(.tick(0.9)), [.cancelRecording])
+        XCTAssertEqual(machine.handle(.hotkeyUp(0.1)), [], "a tap locks listening on, no decision window")
+        XCTAssertTrue(machine.isCapturing)
+        XCTAssertEqual(machine.handle(.tick(5)), [], "time alone never ends a locked recording")
+        XCTAssertTrue(machine.isCapturing)
+    }
+
+    func testSecondTapFinishes() {
+        var machine = HotkeyStateMachine()
+        _ = machine.handle(.hotkeyDown(0))
+        _ = machine.handle(.hotkeyUp(0.1))
+        XCTAssertEqual(machine.handle(.hotkeyDown(3)), [.finishRecording])
+        XCTAssertEqual(machine.handle(.hotkeyUp(3.1)), [], "the finishing press's release is ignored")
         XCTAssertFalse(machine.isCapturing)
     }
 
-    func testDoubleTapEntersHandsFreeAndNextPressFinishes() {
+    func testQuickSecondTapAlsoFinishes() {
         var machine = HotkeyStateMachine()
-        XCTAssertEqual(machine.handle(.hotkeyDown(0)), [.startRecording])
-        XCTAssertEqual(machine.handle(.hotkeyUp(0.1)), [])
-        XCTAssertEqual(machine.handle(.hotkeyDown(0.3)), [])
-        XCTAssertEqual(machine.handle(.hotkeyUp(0.4)), [])
-        XCTAssertTrue(machine.isCapturing, "hands-free keeps recording")
-        XCTAssertEqual(machine.handle(.tick(5)), [])
-        XCTAssertTrue(machine.isCapturing, "tick must not end hands-free")
-        XCTAssertEqual(machine.handle(.hotkeyDown(6)), [.finishRecording])
-        XCTAssertEqual(machine.handle(.hotkeyUp(6.1)), [])
-        XCTAssertFalse(machine.isCapturing)
-    }
-
-    func testLateSecondPressRestartsInsteadOfHandsFree() {
-        var machine = HotkeyStateMachine()
-        XCTAssertEqual(machine.handle(.hotkeyDown(0)), [.startRecording])
-        XCTAssertEqual(machine.handle(.hotkeyUp(0.1)), [])
-        XCTAssertEqual(machine.handle(.hotkeyDown(2.0)), [.cancelRecording, .startRecording])
-        XCTAssertEqual(machine.handle(.hotkeyUp(3.0)), [.finishRecording])
+        _ = machine.handle(.hotkeyDown(0))
+        _ = machine.handle(.hotkeyUp(0.1))
+        XCTAssertEqual(
+            machine.handle(.hotkeyDown(0.3)), [.finishRecording],
+            "tap-tap means start then stop; there is no double-tap gesture anymore"
+        )
     }
 
     func testEscapeCancelsWhileHolding() {
@@ -49,12 +46,10 @@ final class HotkeyStateMachineTests: XCTestCase {
         XCTAssertEqual(machine.handle(.hotkeyUp(0.5)), [], "release after cancel is ignored")
     }
 
-    func testEscapeCancelsHandsFree() {
+    func testEscapeCancelsLockedListening() {
         var machine = HotkeyStateMachine()
         _ = machine.handle(.hotkeyDown(0))
         _ = machine.handle(.hotkeyUp(0.1))
-        _ = machine.handle(.hotkeyDown(0.3))
-        _ = machine.handle(.hotkeyUp(0.4))
         XCTAssertEqual(machine.handle(.escapeDown), [.cancelRecording])
         XCTAssertFalse(machine.isCapturing)
     }

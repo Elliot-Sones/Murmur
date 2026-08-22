@@ -28,12 +28,14 @@ final class DictationController {
     private(set) var state: State = .idle {
         didSet {
             log.notice("state -> \(String(describing: self.state), privacy: .public)")
-            HUDPanelController.shared.stateChanged(state)
+            PillPanelController.shared.stateChanged(state)
         }
     }
     var audioLevel: Float = 0
     private(set) var mode: Mode = .insert
     private(set) var previewText = ""
+    /// True briefly after an insert so the widget can show latency and 👎.
+    private(set) var showDoneRow = false
     private(set) var lastRecord: DictationRecord?
     private(set) var lastLatencyMs: Int?
     private(set) var lastRun: DictationRunStats?
@@ -229,6 +231,7 @@ final class DictationController {
         )
         lastRun = stats
         lastLatencyMs = stats.totalMs
+        showDoneRow = true
         SoundCue.inserted()
         HistoryStore.shared.add(
             DictationRecord(
@@ -369,6 +372,7 @@ final class DictationController {
         )
         lastRun = stats
         lastLatencyMs = stats.totalMs
+        showDoneRow = true
         SoundCue.inserted()
         log.notice("run: \(stats.audioSummary, privacy: .public) [\(stats.stageSummary, privacy: .public)] engine: \(engine, privacy: .public)")
         lastRecord = HistoryStore.shared.add(
@@ -400,6 +404,11 @@ final class DictationController {
         guard case .idle = state else { return }
         state = .notice(message)
         autoDismissNotice()
+    }
+
+    /// The widget's post-insert linger is over; back to the plain toggle.
+    func expireDoneRow() {
+        showDoneRow = false
     }
 
     private static func milliseconds(_ duration: Duration) -> Int {

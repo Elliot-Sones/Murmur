@@ -1,22 +1,45 @@
 import SwiftUI
 
-/// Bottom-center widget. Idle: a small waveform pill (same icon family as
-/// the dictation HUD) that toggles speak-on-highlight. Reading: a
-/// Speechify-style player bar with skip, play/pause, speed, and progress.
+/// Content of the single bottom-center widget. One capsule, several faces:
+/// toggle pill (idle), level meter (dictating), status row (working),
+/// done row (just inserted), or the reader bar (speaking).
 struct PillView: View {
     private var speaker: SelectionSpeaker { .shared }
     private var reader: ReaderController { .shared }
+    private var controller: DictationController { .shared }
+    private var settings: SettingsStore { .shared }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
             if reader.isActive {
-                readerBar
+                readerBar.padding(.horizontal, 14).padding(.vertical, 8).background(capsule)
             } else {
-                togglePill
+                switch controller.state {
+                case .recording:
+                    recordingRow.padding(.horizontal, 16).padding(.vertical, 10).background(capsule)
+                case .transcribing, .inserting, .preparing:
+                    workingRow.padding(.horizontal, 16).padding(.vertical, 10).background(capsule)
+                case .notice(let message):
+                    noticeRow(message).padding(.horizontal, 16).padding(.vertical, 10).background(capsule)
+                case .idle:
+                    if controller.showDoneRow {
+                        doneRow.padding(.horizontal, 14).padding(.vertical, 8).background(capsule)
+                    } else {
+                        togglePill
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: controller.state)
     }
+
+    private var capsule: some View {
+        RoundedRectangle(cornerRadius: 14).fill(.ultraThinMaterial)
+    }
+
+    // MARK: - Idle toggle
 
     private var togglePill: some View {
         Button {
@@ -37,12 +60,86 @@ struct PillView: View {
         .buttonStyle(.plain)
         .help(
             speaker.enabled
-                ? "Speaking highlighted text. Click to turn off."
-                : "Click to speak any text you highlight."
+                ? "Speaking highlighted text. Click to turn off. Tap \(settings.hotkey.shortName) to dictate."
+                : "Click to speak highlighted text. Tap \(settings.hotkey.shortName) to dictate."
         )
         .accessibilityLabel("Speak highlighted text")
         .accessibilityValue(speaker.enabled ? "on" : "off")
     }
+
+    // MARK: - Dictation faces
+
+    private var recordingRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                LevelMeter(level: controller.audioLevel, reduceMotion: reduceMotion)
+                Text(controller.mode == .command ? "Command: speak an instruction" : "Listening")
+                    .font(.callout)
+                Text("Tap \(controller.mode == .command ? settings.commandHotkey.shortName : settings.hotkey.shortName) to finish · Esc cancels")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if !controller.previewText.isEmpty {
+                Text(controller.previewText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .truncationMode(.head)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private var workingRow: some View {
+        HStack(spacing: 10) {
+            ProgressView().controlSize(.small)
+            switch controller.state {
+            case .transcribing:
+                Text(controller.mode == .command ? "Rewriting" : "Transcribing").font(.callout)
+            case .inserting:
+                Text("Inserting").font(.callout)
+            case .preparing(let message):
+                Text(message).font(.callout)
+            default:
+                EmptyView()
+            }
+        }
+    }
+
+    private func noticeRow(_ message: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle")
+            Text(message).font(.callout)
+        }
+    }
+
+    private var doneRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+            if let latency = controller.lastLatencyMs {
+                Text("Done in \(latency) ms")
+                    .font(.callout)
+                    .monospacedDigit()
+            } else {
+                Text("Done").font(.callout)
+            }
+            if let record = controller.lastRecord {
+                Spacer(minLength: 8)
+                Button {
+                    controller.flagLastRecord()
+                } label: {
+                    Image(systemName: record.vote == -1 ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                        .foregroundStyle(record.vote == -1 ? .red : .secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("Flag this dictation as wrong")
+                .accessibilityLabel("Flag last dictation as wrong")
+            }
+        }
+    }
+
+    // MARK: - Reader bar
 
     private var readerBar: some View {
         VStack(spacing: 5) {
@@ -113,8 +210,30 @@ struct PillView: View {
                 .controlSize(.small)
                 .tint(Color.accentColor)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+private struct LevelMeter: View {
+    let level: Float
+    let reduceMotion: Bool
+    private let barCount = 5
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<barCount, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(.tint)
+                    .frame(width: 3, height: barHeight(index))
+            }
+        }
+        .animation(reduceMotion ? nil : .linear(duration: 0.08), value: level)
+        .accessibilityLabel("Microphone level")
+        .accessibilityValue("\(Int(level * 100)) percent")
+    }
+
+    private func barHeight(_ index: Int) -> CGFloat {
+        let threshold = Float(index + 1) / Float(barCount + 1)
+        let active = level >= threshold
+        return active ? CGFloat(8 + index * 4) : 4
     }
 }

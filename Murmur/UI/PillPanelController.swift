@@ -1,12 +1,15 @@
 import AppKit
 import SwiftUI
 
-/// Hosts the bottom-center widget: the small speak-on-highlight pill when
-/// idle, the Speechify-style reader bar while reading. Never takes focus.
+/// The app's single floating widget, bottom-center: a small toggle pill when
+/// idle, and the same capsule grown into a level meter while dictating, a
+/// status row while working, or the reader bar while speaking. Never takes
+/// focus.
 @MainActor
 final class PillPanelController {
     static let shared = PillPanelController()
     private var panel: NSPanel?
+    private var lingerTask: Task<Void, Never>?
 
     func show() {
         if panel == nil {
@@ -30,16 +33,48 @@ final class PillPanelController {
         panel?.orderFrontRegardless()
     }
 
-    /// Resizes for the current mode; the reader bar needs the wide frame.
+    /// Dictation drives the widget through here.
+    func stateChanged(_ state: DictationController.State) {
+        lingerTask?.cancel()
+        if case .idle = state, DictationController.shared.showDoneRow {
+            // Keep the done row (latency + flag button) reachable briefly.
+            lingerTask = Task {
+                try? await Task.sleep(for: .milliseconds(3000))
+                guard !Task.isCancelled else { return }
+                DictationController.shared.expireDoneRow()
+                self.layout()
+            }
+        }
+        layout()
+    }
+
+    /// Resizes for whatever the widget is currently showing.
     func layout() {
         guard let panel, let screen = NSScreen.main else { return }
-        let reading = ReaderController.shared.isActive
-        let size = reading ? NSSize(width: 440, height: 86) : NSSize(width: 56, height: 34)
+        let size = currentSize()
         let origin = NSPoint(
             x: screen.visibleFrame.midX - size.width / 2,
             y: screen.visibleFrame.minY + 10
         )
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
         panel.orderFrontRegardless()
+    }
+
+    private func currentSize() -> NSSize {
+        if ReaderController.shared.isActive {
+            return NSSize(width: 460, height: 96)
+        }
+        switch DictationController.shared.state {
+        case .recording:
+            return NSSize(width: 400, height: 88)
+        case .transcribing, .inserting, .preparing:
+            return NSSize(width: 300, height: 56)
+        case .notice:
+            return NSSize(width: 420, height: 56)
+        case .idle:
+            return DictationController.shared.showDoneRow
+                ? NSSize(width: 260, height: 48)
+                : NSSize(width: 56, height: 34)
+        }
     }
 }

@@ -19,7 +19,6 @@ final class HotkeyService {
     private var dictationChordDown = false
     private var tap: CFMachPort?
     private var retryTimer: Timer?
-    private var tickTimer: Timer?
 
     /// Creates the tap, retrying until Input Monitoring permission exists.
     func ensureRunning() {
@@ -121,7 +120,6 @@ final class HotkeyService {
                 actions = machine.handle(.hotkeyDown(now))
             case .hotkeyUp:
                 actions = machine.handle(.hotkeyUp(now))
-                scheduleTick()
             case .escape:
                 return false
             }
@@ -144,7 +142,6 @@ final class HotkeyService {
                 actions = commandMachine.handle(.hotkeyDown(now))
             case .hotkeyUp:
                 actions = commandMachine.handle(.hotkeyUp(now))
-                scheduleTick()
             case .escape:
                 return false
             }
@@ -166,20 +163,6 @@ final class HotkeyService {
             return true
         }
         return false
-    }
-
-    /// A short tap parks a machine in pendingDecision; the tick resolves it
-    /// (discard) when no second tap arrives inside the double-tap window.
-    private func scheduleTick() {
-        tickTimer?.invalidate()
-        tickTimer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: false) { _ in
-            Task { @MainActor in
-                let service = HotkeyService.shared
-                let now = ProcessInfo.processInfo.systemUptime
-                service.dispatch(service.machine.handle(.tick(now)), mode: .insert)
-                service.dispatch(service.commandMachine.handle(.tick(now)), mode: .command)
-            }
-        }
     }
 
     private func dispatch(_ actions: [HotkeyStateMachine.Action], mode: DictationController.Mode) {

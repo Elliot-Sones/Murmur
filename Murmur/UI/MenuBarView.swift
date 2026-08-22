@@ -37,9 +37,9 @@ struct MenuBarView: View {
         case .idle:
             let hotkey = settings.hotkey.shortName
             if let latency = controller.lastLatencyMs {
-                return "Ready. Hold \(hotkey) to dictate. Last: \(latency) ms"
+                return "Ready. Tap \(hotkey) to dictate. Last: \(latency) ms"
             }
-            return "Ready. Hold \(hotkey) to dictate."
+            return "Ready. Tap \(hotkey) to dictate, tap again to insert."
         case .preparing(let message):
             return message
         case .recording:

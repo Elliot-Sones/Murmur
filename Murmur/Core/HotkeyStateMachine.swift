@@ -1,7 +1,8 @@
 import Foundation
 
-/// Pure push-to-talk state machine. Hold = record, release = finish.
-/// A quick tap followed by another quick tap locks hands-free mode; the next press finishes.
+/// Pure dictation-key state machine. Tap = toggle: a quick press locks
+/// listening on and the next press finishes. Hold = push-to-talk: keep the
+/// key down while speaking, release to finish. Esc cancels either way.
 /// Time comes in through events so the logic stays testable.
 struct HotkeyStateMachine {
     enum Event: Equatable {
@@ -20,18 +21,22 @@ struct HotkeyStateMachine {
     private enum Phase: Equatable {
         case idle
         case holding(downAt: TimeInterval)
-        case pendingDecision(shortUpAt: TimeInterval)
-        case handsFree
+        case locked
+        /// Finish was triggered by a key press; its release is ignored.
+        case draining
     }
 
-    /// A press shorter than this is a tap, not a hold.
+    /// A press shorter than this is a tap (locks listening), longer is a hold.
     var shortTapMax: TimeInterval = 0.30
-    /// A second tap must start within this window after the first tap ended.
-    var doubleTapWindow: TimeInterval = 0.40
 
     private var phase: Phase = .idle
 
-    var isCapturing: Bool { phase != .idle }
+    var isCapturing: Bool {
+        switch phase {
+        case .holding, .locked: true
+        case .idle, .draining: false
+        }
+    }
 
     mutating func handle(_ event: Event) -> [Action] {
         switch (phase, event) {
@@ -41,30 +46,21 @@ struct HotkeyStateMachine {
 
         case (.holding(let downAt), .hotkeyUp(let time)):
             if time - downAt < shortTapMax {
-                phase = .pendingDecision(shortUpAt: time)
+                phase = .locked
                 return []
             }
             phase = .idle
             return [.finishRecording]
 
-        case (.pendingDecision(let shortUpAt), .hotkeyDown(let time)):
-            if time - shortUpAt <= doubleTapWindow {
-                phase = .handsFree
-                return []
-            }
-            phase = .holding(downAt: time)
-            return [.cancelRecording, .startRecording]
-
-        case (.pendingDecision(let shortUpAt), .tick(let time)):
-            guard time - shortUpAt > doubleTapWindow else { return [] }
-            phase = .idle
-            return [.cancelRecording]
-
-        case (.handsFree, .hotkeyDown):
-            phase = .idle
+        case (.locked, .hotkeyDown):
+            phase = .draining
             return [.finishRecording]
 
-        case (.holding, .escapeDown), (.pendingDecision, .escapeDown), (.handsFree, .escapeDown):
+        case (.draining, .hotkeyUp):
+            phase = .idle
+            return []
+
+        case (.holding, .escapeDown), (.locked, .escapeDown):
             phase = .idle
             return [.cancelRecording]
 
