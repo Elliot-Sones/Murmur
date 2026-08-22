@@ -63,21 +63,6 @@ final class HistoryStoreTests: XCTestCase {
     }
 
     @MainActor
-    func testCorrectionRoundTripsAndEmptyClearsIt() throws {
-        let store = try makeStore()
-        store.add(record(text: "send the report wednesday"))
-        guard let saved = store.records(matching: "").first else {
-            XCTFail("expected the record back")
-            return
-        }
-        store.setCorrected(saved, text: "  send the report thursday  ")
-        XCTAssertEqual(store.records(matching: "").first?.correctedText, "send the report thursday")
-
-        store.setCorrected(saved, text: "   ")
-        XCTAssertNil(store.records(matching: "").first?.correctedText)
-    }
-
-    @MainActor
     func testVoteRoundTripsAndToggles() throws {
         let store = try makeStore()
         store.add(record(text: "flag me"))

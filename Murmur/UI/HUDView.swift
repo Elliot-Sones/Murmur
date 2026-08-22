@@ -4,16 +4,10 @@ struct HUDView: View {
     private var controller: DictationController { .shared }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @FocusState private var reviewFocused: Bool
-
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if case .reviewing = controller.state {
-                reviewEditor
-            } else {
-                HStack(spacing: 10) {
-                    content
-                }
+            HStack(spacing: 10) {
+                content
             }
             if case .recording = controller.state, !controller.previewText.isEmpty {
                 Text(controller.previewText)
@@ -39,28 +33,6 @@ struct HUDView: View {
         )
     }
 
-    private var reviewEditor: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            TextField(
-                "Edit before inserting",
-                text: Binding(
-                    get: { controller.reviewText },
-                    set: { controller.reviewText = $0 }
-                ),
-                axis: .vertical
-            )
-            .lineLimit(1...4)
-            .textFieldStyle(.roundedBorder)
-            .focused($reviewFocused)
-            .onSubmit { controller.acceptReview() }
-            .onExitCommand { controller.cancelReview() }
-            Text("Return inserts · edit first to correct · Esc discards")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .onAppear { reviewFocused = true }
-    }
-
     @ViewBuilder
     private var content: some View {
         switch controller.state {
@@ -73,8 +45,6 @@ struct HUDView: View {
         case .transcribing:
             ProgressView().controlSize(.small)
             Text(controller.mode == .command ? "Rewriting" : "Transcribing")
-        case .reviewing:
-            EmptyView()
         case .inserting:
             Image(systemName: "text.cursor")
             Text("Inserting")

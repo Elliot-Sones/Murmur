@@ -85,10 +85,6 @@ private struct GeneralSettingsTab: View {
             }
 
             Section("Behavior") {
-                Toggle("Review before inserting (Return inserts, edits become corrections)", isOn: Binding(
-                    get: { settings.reviewBeforeInsert },
-                    set: { settings.reviewBeforeInsert = $0 }
-                ))
                 Toggle("Live preview in HUD while dictating", isOn: Binding(
                     get: { settings.streamingPreviewEnabled },
                     set: { settings.streamingPreviewEnabled = $0 }

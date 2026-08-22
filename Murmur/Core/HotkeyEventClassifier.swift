@@ -6,11 +6,6 @@ enum ClassifiedKeyEvent: Equatable {
     case escape
 }
 
-/// What a keystroke means while a dictation waits in the review editor.
-enum ReviewKeyAction: Equatable {
-    case accept
-    case cancel
-}
 
 /// Maps raw CGEvent facts to hotkey events for the configured dictation key.
 enum HotkeyEventClassifier {
@@ -20,26 +15,6 @@ enum HotkeyEventClassifier {
     static let escapeKeyCode: Int64 = 53
     static let iKeyCode: Int64 = 34
     static let oKeyCode: Int64 = 31
-    static let returnKeyCode: Int64 = 36
-    static let keypadEnterKeyCode: Int64 = 76
-
-    /// Classifies keystrokes while a review is pending and the HUD editor is
-    /// the key window. Plain Return/Enter accepts, plain Esc cancels; any
-    /// modifier passes the key through so the field can handle line breaks.
-    static func classifyReview(
-        type: CGEventType,
-        keyCode: Int64,
-        flags: CGEventFlags
-    ) -> ReviewKeyAction? {
-        guard type == .keyDown else { return nil }
-        let modifiers: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate, .maskShift]
-        guard flags.intersection(modifiers).isEmpty else { return nil }
-        switch keyCode {
-        case returnKeyCode, keypadEnterKeyCode: return .accept
-        case escapeKeyCode: return .cancel
-        default: return nil
-        }
-    }
 
     /// Classifies events for the command-mode hotkey. Escape is handled by
     /// `classify`; this only reports the command key itself.

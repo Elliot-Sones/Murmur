@@ -77,21 +77,6 @@ final class HotkeyService {
         let commandChoice = SettingsStore.shared.commandHotkey
         let now = ProcessInfo.processInfo.systemUptime
 
-        // While a review waits in the HUD editor, Return accepts and Esc
-        // discards, but only while the editor owns the keyboard; once the
-        // user clicks into another app, keys behave normally again.
-        if case .reviewing = DictationController.shared.state,
-            HUDPanelController.shared.reviewPanelIsKey,
-            let action = HotkeyEventClassifier.classifyReview(
-                type: type, keyCode: keyCode, flags: event.flags
-            ) {
-            switch action {
-            case .accept: DictationController.shared.acceptReview()
-            case .cancel: DictationController.shared.cancelReview()
-            }
-            return true
-        }
-
         // Escape cancels whichever machine is currently capturing.
         if type == .keyDown, keyCode == HotkeyEventClassifier.escapeKeyCode {
             if machine.isCapturing {

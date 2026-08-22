@@ -15,7 +15,7 @@ struct MurmurApp: App {
     private var menuSymbol: String {
         switch DictationController.shared.state {
         case .recording: "waveform.badge.mic"
-        case .transcribing, .inserting, .reviewing: "waveform.circle"
+        case .transcribing, .inserting: "waveform.circle"
         case .notice: "exclamationmark.bubble"
         case .idle, .preparing: "waveform"
         }

@@ -42,8 +42,6 @@ struct MenuBarView: View {
             return "Listening…"
         case .transcribing:
             return "Transcribing…"
-        case .reviewing:
-            return "Reviewing… (Return inserts, Esc discards)"
         case .inserting:
             return "Inserting…"
         case .notice(let message):

@@ -16,8 +16,6 @@ final class DictationRecord {
     var transcribeMs: Int = 0
     var cleanupMs: Int = 0
     var pasteMs: Int = 0
-    /// Hand-corrected ground truth; accuracy is scored against it.
-    var correctedText: String?
     /// -1 flagged wrong, 0 unrated.
     var vote: Int = 0
 

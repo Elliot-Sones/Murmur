@@ -31,7 +31,6 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.ollamaModel, "")
         XCTAssertTrue(store.soundCuesEnabled)
         XCTAssertEqual(store.commandHotkey, .rightOption)
-        XCTAssertFalse(store.reviewBeforeInsert, "review mode must be opt-in")
     }
 
     @MainActor
@@ -58,7 +57,6 @@ final class SettingsStoreTests: XCTestCase {
         first.ollamaModel = "gemma4:latest"
         first.soundCuesEnabled = false
         first.commandHotkey = .controlO
-        first.reviewBeforeInsert = true
 
         let second = SettingsStore(defaults: defaults)
         XCTAssertEqual(second.hotkey, .rightCommand)
@@ -70,6 +68,5 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(second.ollamaModel, "gemma4:latest")
         XCTAssertFalse(second.soundCuesEnabled)
         XCTAssertEqual(second.commandHotkey, .controlO)
-        XCTAssertTrue(second.reviewBeforeInsert)
     }
 }

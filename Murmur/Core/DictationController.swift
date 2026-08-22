@@ -12,18 +12,8 @@ final class DictationController {
         case preparing(String)
         case recording
         case transcribing
-        case reviewing
         case inserting
         case notice(String)
-    }
-
-    private struct PendingReview {
-        var raw: String
-        var cleaned: String
-        var audioMs: Int
-        var transcribeMs: Int
-        var cleanupMs: Int
-        var engine: String
     }
 
     enum Mode: Equatable {
@@ -44,9 +34,7 @@ final class DictationController {
     var audioLevel: Float = 0
     private(set) var mode: Mode = .insert
     private(set) var previewText = ""
-    var reviewText = ""
     private(set) var lastRecord: DictationRecord?
-    @ObservationIgnored private var pendingReview: PendingReview?
     private(set) var lastLatencyMs: Int?
     private(set) var lastRun: DictationRunStats?
     private(set) var engineStatus = "Speech model not loaded"
@@ -364,20 +352,6 @@ final class DictationController {
             engineForRun = "raw (cleanup off)"
         }
 
-        if SettingsStore.shared.reviewBeforeInsert {
-            pendingReview = PendingReview(
-                raw: raw,
-                cleaned: cleaned,
-                audioMs: samples.count * 1000 / 16_000,
-                transcribeMs: transcribeMs,
-                cleanupMs: cleanupMs,
-                engine: engineForRun
-            )
-            reviewText = cleaned
-            state = .reviewing
-            return
-        }
-
         state = .inserting
         let insertInterval = signposter.beginInterval("insert")
         await inserter.insert(cleaned, restoreDelayMs: SettingsStore.shared.restoreDelayMs)
@@ -412,76 +386,6 @@ final class DictationController {
                 pasteMs: stats.pasteMs
             )
         )
-        state = .idle
-    }
-
-    /// Review mode: insert what is in the HUD editor, logging any edit as a
-    /// correction against the model's output.
-    func acceptReview() {
-        guard state == .reviewing, let pending = pendingReview else { return }
-        pendingReview = nil
-        let final = reviewText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !final.isEmpty else {
-            recordRejectedReview(pending)
-            return
-        }
-        state = .inserting
-        Task {
-            let start = ContinuousClock.now
-            await inserter.insert(final, restoreDelayMs: SettingsStore.shared.restoreDelayMs)
-            let stats = DictationRunStats(
-                audioMs: pending.audioMs,
-                transcribeMs: pending.transcribeMs,
-                cleanupMs: pending.cleanupMs,
-                pasteMs: Self.milliseconds(start.duration(to: ContinuousClock.now)),
-                characters: final.count,
-                engine: pending.engine
-            )
-            lastRun = stats
-            lastLatencyMs = stats.totalMs
-            SoundCue.inserted()
-            let record = DictationRecord(
-                date: Date(),
-                appBundleId: targetApp.bundleId,
-                appName: targetApp.name,
-                rawTranscript: pending.raw,
-                cleanedText: pending.cleaned,
-                audioMs: pending.audioMs,
-                totalMs: stats.totalMs,
-                engine: pending.engine,
-                transcribeMs: pending.transcribeMs,
-                cleanupMs: pending.cleanupMs,
-                pasteMs: stats.pasteMs
-            )
-            record.correctedText = ReviewOutcome.correction(model: pending.cleaned, final: final)
-            lastRecord = HistoryStore.shared.add(record)
-            state = .idle
-        }
-    }
-
-    /// Review mode: discard without inserting; logged as a rejected dictation.
-    func cancelReview() {
-        guard state == .reviewing, let pending = pendingReview else { return }
-        pendingReview = nil
-        recordRejectedReview(pending)
-    }
-
-    private func recordRejectedReview(_ pending: PendingReview) {
-        let record = DictationRecord(
-            date: Date(),
-            appBundleId: targetApp.bundleId,
-            appName: targetApp.name,
-            rawTranscript: pending.raw,
-            cleanedText: pending.cleaned,
-            audioMs: pending.audioMs,
-            totalMs: pending.transcribeMs + pending.cleanupMs,
-            engine: pending.engine,
-            transcribeMs: pending.transcribeMs,
-            cleanupMs: pending.cleanupMs
-        )
-        record.vote = -1
-        HistoryStore.shared.add(record)
-        lastRecord = nil
         state = .idle
     }
 

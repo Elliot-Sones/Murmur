@@ -78,7 +78,6 @@ final class SettingsStore {
         static let ollamaModel = "ollamaModel"
         static let soundCues = "soundCuesEnabled"
         static let commandHotkey = "commandHotkey"
-        static let reviewBeforeInsert = "reviewBeforeInsert"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -113,9 +112,6 @@ final class SettingsStore {
     var commandHotkey: CommandHotkeyChoice {
         didSet { defaults.set(commandHotkey.rawValue, forKey: Key.commandHotkey) }
     }
-    var reviewBeforeInsert: Bool {
-        didSet { defaults.set(reviewBeforeInsert, forKey: Key.reviewBeforeInsert) }
-    }
     var restoreDelayMs: Int {
         didSet { defaults.set(restoreDelayMs, forKey: Key.restoreDelay) }
     }
@@ -136,7 +132,6 @@ final class SettingsStore {
         commandHotkey = CommandHotkeyChoice(
             rawValue: defaults.string(forKey: Key.commandHotkey) ?? ""
         ) ?? .rightOption
-        reviewBeforeInsert = defaults.object(forKey: Key.reviewBeforeInsert) as? Bool ?? false
         restoreDelayMs = defaults.object(forKey: Key.restoreDelay) as? Int ?? 250
     }
 }

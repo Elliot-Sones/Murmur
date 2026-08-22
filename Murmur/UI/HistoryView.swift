@@ -67,22 +67,6 @@ struct HistoryView: View {
         if let median = Median.of(records.map(\.totalMs)) {
             parts.append("median \(median) ms")
         }
-        // Rephrasings are the user changing their mind, not a model error;
-        // scoring them would punish the models for obedience.
-        let corrected = records.compactMap { record -> (String, String)? in
-            guard let correction = record.correctedText else { return nil }
-            let blame = CorrectionBlame.classify(
-                raw: record.rawTranscript, cleaned: record.cleanedText, corrected: correction
-            )
-            guard blame != .rephrased else { return nil }
-            return (record.cleanedText, correction)
-        }
-        if !corrected.isEmpty {
-            let average = corrected
-                .map { AccuracyScore.percent(inserted: $0.0, corrected: $0.1) }
-                .reduce(0, +) / Double(corrected.count)
-            parts.append(String(format: "%.0f%% accuracy over %d corrected", average, corrected.count))
-        }
         let flagged = records.filter { $0.vote == -1 }.count
         if flagged > 0 {
             parts.append("\(flagged) flagged")
@@ -96,8 +80,6 @@ private struct HistoryRow: View {
     let isExpanded: Bool
     let onToggle: () -> Void
     private var history: HistoryStore { .shared }
-    @State private var correctionDraft = ""
-    @State private var isEditingCorrection = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -136,13 +118,6 @@ private struct HistoryRow: View {
                         .padding(.vertical, 1)
                         .background(.tint.opacity(0.2), in: Capsule())
                 }
-                if let corrected = record.correctedText {
-                    AccuracyChip(
-                        percent: AccuracyScore.percent(
-                            inserted: record.cleanedText, corrected: corrected
-                        )
-                    )
-                }
                 if record.vote == -1 {
                     Image(systemName: "hand.thumbsdown.fill")
                         .font(.caption)
@@ -157,9 +132,7 @@ private struct HistoryRow: View {
                 Spacer()
                 Button {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(
-                        record.correctedText ?? record.cleanedText, forType: .string
-                    )
+                    NSPasteboard.general.setString(record.cleanedText, forType: .string)
                 } label: {
                     Image(systemName: "doc.on.doc")
                 }
@@ -214,7 +187,6 @@ private struct HistoryRow: View {
                     .textSelection(.enabled)
             }
             HStack {
-                correctionSection
                 Spacer()
                 Button(record.vote == -1 ? "Unflag" : "Flag as wrong") {
                     history.setVote(record, vote: record.vote == -1 ? 0 : -1)
@@ -250,86 +222,6 @@ private struct HistoryRow: View {
         }
     }
 
-    @ViewBuilder
-    private var correctionSection: some View {
-        if isEditingCorrection {
-            VStack(alignment: .leading, spacing: 6) {
-                TextField(
-                    "What it should have said",
-                    text: $correctionDraft,
-                    axis: .vertical
-                )
-                .lineLimit(2...5)
-                .textFieldStyle(.roundedBorder)
-                HStack {
-                    Button("Save Correction") {
-                        history.setCorrected(record, text: correctionDraft)
-                        isEditingCorrection = false
-                    }
-                    .disabled(correctionDraft.trimmingCharacters(in: .whitespaces).isEmpty)
-                    Button("Cancel") { isEditingCorrection = false }
-                }
-                .controlSize(.small)
-            }
-        } else if let corrected = record.correctedText {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text("Corrected to:")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Edit") {
-                        correctionDraft = corrected
-                        isEditingCorrection = true
-                    }
-                    Button("Remove") { history.setCorrected(record, text: nil) }
-                }
-                .controlSize(.small)
-                .font(.caption)
-                Text(corrected)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-                Text(
-                    CorrectionBlame.classify(
-                        raw: record.rawTranscript,
-                        cleaned: record.cleanedText,
-                        corrected: corrected
-                    ).explanation
-                )
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-            }
-        } else {
-            Button("Mark correction…") {
-                correctionDraft = record.cleanedText
-                isEditingCorrection = true
-            }
-            .controlSize(.small)
-            .help("Type what Murmur should have inserted; accuracy is scored against it")
-        }
-    }
-}
-
-private struct AccuracyChip: View {
-    let percent: Double
-
-    private var color: Color {
-        if percent >= 95 { return .green }
-        if percent >= 85 { return .orange }
-        return .red
-    }
-
-    var body: some View {
-        Text(String(format: "%.0f%%", percent))
-            .font(.caption)
-            .monospacedDigit()
-            .foregroundStyle(color)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 1)
-            .background(color.opacity(0.15), in: Capsule())
-            .accessibilityLabel(String(format: "Accuracy %.0f percent", percent))
-    }
 }
 
 private struct StageBar: View {
