@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// Hosts the small speak-on-highlight pill, bottom-center of the screen,
-/// below the HUD's spot. Always visible, never takes focus.
+/// Hosts the bottom-center widget: the small speak-on-highlight pill when
+/// idle, the Speechify-style reader bar while reading. Never takes focus.
 @MainActor
 final class PillPanelController {
     static let shared = PillPanelController()
@@ -26,8 +26,15 @@ final class PillPanelController {
             newPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             panel = newPanel
         }
+        layout()
+        panel?.orderFrontRegardless()
+    }
+
+    /// Resizes for the current mode; the reader bar needs the wide frame.
+    func layout() {
         guard let panel, let screen = NSScreen.main else { return }
-        let size = NSSize(width: 56, height: 34)
+        let reading = ReaderController.shared.isActive
+        let size = reading ? NSSize(width: 440, height: 86) : NSSize(width: 56, height: 34)
         let origin = NSPoint(
             x: screen.visibleFrame.midX - size.width / 2,
             y: screen.visibleFrame.minY + 10

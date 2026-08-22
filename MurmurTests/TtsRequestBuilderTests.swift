@@ -12,28 +12,26 @@ final class TtsRequestBuilderTests: XCTestCase {
 
     func testBuildsSpeechRequestAgainstLocalServer() throws {
         let request = try XCTUnwrap(
-            TtsRequestBuilder.speechRequest(engine: .qwen, text: "Hello there", voice: "Vivian")
+            TtsRequestBuilder.speechRequest(engine: .kokoroServer, text: "Hello there", voice: "bm_fable")
         )
         XCTAssertEqual(request.url?.absoluteString, "http://localhost:8000/v1/audio/speech")
         XCTAssertEqual(request.httpMethod, "POST")
         XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
         let json = try body(of: request)
-        XCTAssertEqual(json["model"], "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit")
+        XCTAssertEqual(json["model"], "mlx-community/Kokoro-82M-bf16")
         XCTAssertEqual(json["input"], "Hello there")
-        XCTAssertEqual(json["voice"], "Vivian")
+        XCTAssertEqual(json["voice"], "bm_fable")
     }
 
     func testOmitsEmptyVoice() throws {
         let request = try XCTUnwrap(
-            TtsRequestBuilder.speechRequest(engine: .chatterbox, text: "Hi", voice: "")
+            TtsRequestBuilder.speechRequest(engine: .kokoroServer, text: "Hi", voice: "")
         )
         let json = try body(of: request)
-        XCTAssertEqual(json["model"], "mlx-community/chatterbox-turbo-8bit")
         XCTAssertNil(json["voice"], "an empty voice must be left to the server default")
     }
 
-    func testNativeEnginesProduceNoServerRequest() {
-        XCTAssertNil(TtsRequestBuilder.speechRequest(engine: .system, text: "Hi", voice: ""))
+    func testNativeEngineProducesNoServerRequest() {
         XCTAssertNil(TtsRequestBuilder.speechRequest(engine: .kokoro, text: "Hi", voice: ""))
     }
 }

@@ -8,7 +8,8 @@ import Foundation
 /// spoken. Clearing the selection re-arms everything, so highlighting the
 /// same passage again speaks it again.
 struct SelectionWatcherLogic {
-    static let maxCharacters = 1000
+    /// Generous: the sentence pipeline reads long articles fine.
+    static let maxCharacters = 5000
 
     private var pending: String?
     private var lastSpoken: String?

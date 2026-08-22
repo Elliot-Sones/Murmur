@@ -28,7 +28,6 @@ private struct GeneralSettingsTab: View {
     private var settings: SettingsStore { .shared }
     private var controller: DictationController { .shared }
     @State private var ollamaModels: [String] = []
-    @State private var previewError: String?
 
     var body: some View {
         Form {
@@ -111,33 +110,10 @@ private struct GeneralSettingsTab: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if settings.ttsEngine == .qwen {
-                    Picker("Qwen speaker", selection: Binding(
-                        get: { settings.ttsQwenVoice },
-                        set: { settings.ttsQwenVoice = $0 }
-                    )) {
-                        ForEach(TtsEngineChoice.qwenVoices, id: \.self) { voice in
-                            Text(voice.replacingOccurrences(of: "_", with: " ")).tag(voice)
-                        }
-                    }
-                }
-                HStack {
-                    Button("Preview Voice") {
-                        Task {
-                            if let failure = await TtsService.shared.speakLatest(
-                                "Hi, this is Murmur. This is how I sound when you highlight text."
-                            ) {
-                                previewError = failure
-                            } else {
-                                previewError = nil
-                            }
-                        }
-                    }
-                    if let previewError {
-                        Text(previewError)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                    }
+                Button("Preview Voice") {
+                    ReaderController.shared.start(
+                        "Hi, this is Murmur. This is how I sound when you highlight text."
+                    )
                 }
                 if settings.ttsEngine.serverModel != nil {
                     Text("Needs the local voice server: run `make tts-serve` in the Murmur folder.")

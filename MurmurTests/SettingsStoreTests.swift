@@ -31,10 +31,10 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.ollamaModel, "")
         XCTAssertTrue(store.soundCuesEnabled)
         XCTAssertEqual(store.commandHotkey, .rightOption)
-        XCTAssertEqual(store.ttsEngine, .system, "speaking must work with zero downloads by default")
+        XCTAssertEqual(store.ttsEngine, .kokoro, "built-in af_heart needs no server")
         XCTAssertEqual(store.ttsKokoroVoice, "af_heart")
-        XCTAssertEqual(store.ttsQwenVoice, "Ryan", "Ryan is the English-tuned Qwen preset")
         XCTAssertFalse(store.speakSelectionEnabled, "speak-on-highlight is opt-in via the pill")
+        XCTAssertEqual(store.readerSpeed, 1.0, accuracy: 0.001)
     }
 
     @MainActor
@@ -61,10 +61,10 @@ final class SettingsStoreTests: XCTestCase {
         first.ollamaModel = "gemma4:latest"
         first.soundCuesEnabled = false
         first.commandHotkey = .controlO
-        first.ttsEngine = .chatterbox
-        first.ttsKokoroVoice = "bm_george"
-        first.ttsQwenVoice = "Aiden"
+        first.ttsEngine = .kokoroServer
+        first.ttsKokoroVoice = "bm_fable"
         first.speakSelectionEnabled = true
+        first.readerSpeed = 1.5
 
         let second = SettingsStore(defaults: defaults)
         XCTAssertEqual(second.hotkey, .rightCommand)
@@ -76,9 +76,9 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(second.ollamaModel, "gemma4:latest")
         XCTAssertFalse(second.soundCuesEnabled)
         XCTAssertEqual(second.commandHotkey, .controlO)
-        XCTAssertEqual(second.ttsEngine, .chatterbox)
-        XCTAssertEqual(second.ttsKokoroVoice, "bm_george")
-        XCTAssertEqual(second.ttsQwenVoice, "Aiden")
+        XCTAssertEqual(second.ttsEngine, .kokoroServer)
+        XCTAssertEqual(second.ttsKokoroVoice, "bm_fable")
         XCTAssertTrue(second.speakSelectionEnabled)
+        XCTAssertEqual(second.readerSpeed, 1.5, accuracy: 0.001)
     }
 }

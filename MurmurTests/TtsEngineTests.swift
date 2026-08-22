@@ -2,21 +2,12 @@ import XCTest
 @testable import Murmur
 
 final class TtsEngineTests: XCTestCase {
-    func testAllEnginesPresent() {
+    func testExactlyTwoKokoroProviders() {
         XCTAssertEqual(
             TtsEngineChoice.allCases,
-            [.system, .kokoro, .kokoroServer, .chatterbox, .qwen]
+            [.kokoro, .kokoroServer],
+            "Elliot kept only the two Kokoro providers"
         )
-    }
-
-    func testKokoroServerExposesTheFullVoiceList() {
-        XCTAssertEqual(
-            TtsEngineChoice.kokoroServer.serverModel,
-            "mlx-community/Kokoro-82M-bf16"
-        )
-        XCTAssertTrue(TtsEngineChoice.kokoroVoices.contains("af_heart"))
-        XCTAssertTrue(TtsEngineChoice.kokoroVoices.contains("bm_fable"))
-        XCTAssertGreaterThanOrEqual(TtsEngineChoice.kokoroVoices.count, 12)
     }
 
     func testDisplayNamesAreDistinctAndNonEmpty() {
@@ -26,15 +17,16 @@ final class TtsEngineTests: XCTestCase {
     }
 
     func testServerModelsMapOnlyServerEngines() {
-        XCTAssertNil(TtsEngineChoice.system.serverModel)
-        XCTAssertNil(TtsEngineChoice.kokoro.serverModel)
+        XCTAssertNil(TtsEngineChoice.kokoro.serverModel, "af_heart runs inside the app")
         XCTAssertEqual(
-            TtsEngineChoice.chatterbox.serverModel,
-            "mlx-community/chatterbox-turbo-8bit"
+            TtsEngineChoice.kokoroServer.serverModel,
+            "mlx-community/Kokoro-82M-bf16"
         )
-        XCTAssertEqual(
-            TtsEngineChoice.qwen.serverModel,
-            "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit"
-        )
+    }
+
+    func testKokoroVoiceListCoversTheEnglishSet() {
+        XCTAssertTrue(TtsEngineChoice.kokoroVoices.contains("af_heart"))
+        XCTAssertTrue(TtsEngineChoice.kokoroVoices.contains("bm_fable"))
+        XCTAssertGreaterThanOrEqual(TtsEngineChoice.kokoroVoices.count, 12)
     }
 }

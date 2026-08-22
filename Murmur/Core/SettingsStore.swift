@@ -80,8 +80,8 @@ final class SettingsStore {
         static let commandHotkey = "commandHotkey"
         static let ttsEngine = "ttsEngine"
         static let ttsKokoroVoice = "ttsKokoroVoice"
-        static let ttsQwenVoice = "ttsQwenVoice"
         static let speakSelection = "speakSelectionEnabled"
+        static let readerSpeed = "readerSpeed"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -125,11 +125,11 @@ final class SettingsStore {
     var ttsKokoroVoice: String {
         didSet { defaults.set(ttsKokoroVoice, forKey: Key.ttsKokoroVoice) }
     }
-    var ttsQwenVoice: String {
-        didSet { defaults.set(ttsQwenVoice, forKey: Key.ttsQwenVoice) }
-    }
     var speakSelectionEnabled: Bool {
         didSet { defaults.set(speakSelectionEnabled, forKey: Key.speakSelection) }
+    }
+    var readerSpeed: Double {
+        didSet { defaults.set(readerSpeed, forKey: Key.readerSpeed) }
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -149,9 +149,9 @@ final class SettingsStore {
             rawValue: defaults.string(forKey: Key.commandHotkey) ?? ""
         ) ?? .rightOption
         restoreDelayMs = defaults.object(forKey: Key.restoreDelay) as? Int ?? 250
-        ttsEngine = TtsEngineChoice(rawValue: defaults.string(forKey: Key.ttsEngine) ?? "") ?? .system
+        ttsEngine = TtsEngineChoice(rawValue: defaults.string(forKey: Key.ttsEngine) ?? "") ?? .kokoro
         ttsKokoroVoice = defaults.string(forKey: Key.ttsKokoroVoice) ?? "af_heart"
-        ttsQwenVoice = defaults.string(forKey: Key.ttsQwenVoice) ?? "Ryan"
         speakSelectionEnabled = defaults.object(forKey: Key.speakSelection) as? Bool ?? false
+        readerSpeed = defaults.object(forKey: Key.readerSpeed) as? Double ?? 1.0
     }
 }

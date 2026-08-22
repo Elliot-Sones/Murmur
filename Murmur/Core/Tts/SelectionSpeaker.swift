@@ -38,7 +38,7 @@ final class SelectionSpeaker {
     private func stop() {
         timer?.invalidate()
         timer = nil
-        TtsService.shared.stop()
+        ReaderController.shared.stop()
         log.notice("speak-on-highlight off")
     }
 
@@ -51,11 +51,7 @@ final class SelectionSpeaker {
 
         let selection = SelectionCapturer.axSelectedText()
         guard let text = logic.observe(selection) else { return }
-        log.notice("speaking selection (\(text.count, privacy: .public) chars)")
-        Task {
-            if let failure = await TtsService.shared.speakLatest(text) {
-                DictationController.shared.surfaceNotice(failure)
-            }
-        }
+        log.notice("reading selection (\(text.count, privacy: .public) chars)")
+        ReaderController.shared.start(text)
     }
 }
