@@ -9,7 +9,6 @@ struct HotkeyStateMachine {
         case hotkeyDown(TimeInterval)
         case hotkeyUp(TimeInterval)
         case escapeDown
-        case tick(TimeInterval)
     }
 
     enum Action: Equatable {

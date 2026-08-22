@@ -15,8 +15,6 @@ final class HotkeyStateMachineTests: XCTestCase {
         XCTAssertEqual(machine.handle(.hotkeyDown(0)), [.startRecording])
         XCTAssertEqual(machine.handle(.hotkeyUp(0.1)), [], "a tap locks listening on, no decision window")
         XCTAssertTrue(machine.isCapturing)
-        XCTAssertEqual(machine.handle(.tick(5)), [], "time alone never ends a locked recording")
-        XCTAssertTrue(machine.isCapturing)
     }
 
     func testSecondTapFinishes() {
@@ -54,11 +52,10 @@ final class HotkeyStateMachineTests: XCTestCase {
         XCTAssertFalse(machine.isCapturing)
     }
 
-    func testIdleIgnoresEscapeUpAndTick() {
+    func testIdleIgnoresStrayEvents() {
         var machine = HotkeyStateMachine()
         XCTAssertEqual(machine.handle(.escapeDown), [])
         XCTAssertEqual(machine.handle(.hotkeyUp(1)), [])
-        XCTAssertEqual(machine.handle(.tick(2)), [])
         XCTAssertFalse(machine.isCapturing)
     }
 }

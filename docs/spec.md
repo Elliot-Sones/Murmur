@@ -2,6 +2,11 @@
 
 System-wide AI dictation that runs entirely on local models. Hold a key anywhere in macOS, speak, release: speech becomes clean, formatted text in the focused app. No cloud, no subscription.
 
+> Historical design document (2026-08-21). The app has since evolved past it:
+> tap-toggle hotkeys, a single bottom widget, and a text-to-speech reader were
+> added after M3. The README describes current behavior; this file records the
+> original plan and its milestone-era deviations.
+
 Decisions from design review (2026-08-21):
 - Scope: full replica, built in phased milestones so core dictation works early.
 - Languages: English only. This unlocks Parakeet, the fastest local STT.
