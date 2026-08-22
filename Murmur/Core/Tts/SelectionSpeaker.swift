@@ -59,17 +59,25 @@ final class SelectionSpeaker {
         Task { @MainActor in
             defer { capturing = false }
             let viaAX = SelectionCapturer.axSelectedText()
-            let text = (await SelectionCapturer.capture())?
+            var text = (await SelectionCapturer.capture())?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            var source = "selection"
+            if text.isEmpty {
+                // AX-blind apps where even the copy fallback is mute (Warp
+                // with a TUI running): the user copies by hand there anyway,
+                // so speak what is already on the clipboard.
+                text = NSPasteboard.general.string(forType: .string)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                source = "clipboard"
+            }
             let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?"
-            log.notice("hotkey speak: front \(front, privacy: .public), ax \(viaAX?.count ?? -1, privacy: .public) chars [\(SelectionCapturer.axTrace(), privacy: .public)], final \(text.count, privacy: .public) chars")
+            log.notice("hotkey speak: front \(front, privacy: .public), ax \(viaAX?.count ?? -1, privacy: .public) chars [\(SelectionCapturer.axTrace(), privacy: .public)], \(source, privacy: .public) \(text.count, privacy: .public) chars")
             guard !text.isEmpty else {
-                DictationController.shared.surfaceNotice("No selected text to speak.")
+                DictationController.shared.surfaceNotice("Nothing selected or copied to speak.")
                 return
             }
             let capped = String(text.prefix(SelectionWatcherLogic.maxCharacters))
             _ = logic.settle(capped)
-            log.notice("hotkey speak (\(capped.count, privacy: .public) chars)")
             ReaderController.shared.start(capped)
         }
     }
