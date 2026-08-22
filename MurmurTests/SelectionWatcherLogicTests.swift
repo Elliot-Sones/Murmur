@@ -49,4 +49,33 @@ final class SelectionWatcherLogicTests: XCTestCase {
         XCTAssertNotNil(spoken)
         XCTAssertLessThanOrEqual(spoken?.count ?? 0, SelectionWatcherLogic.maxCharacters)
     }
+
+    func testSettleSpeaksImmediatelyWithoutStability() {
+        var logic = SelectionWatcherLogic()
+        XCTAssertEqual(
+            logic.settle("picked at mouse up"), "picked at mouse up",
+            "mouse release is itself the settle signal; no second poll needed"
+        )
+    }
+
+    func testSettleDoesNotRepeatTheLastSpokenText() {
+        var logic = SelectionWatcherLogic()
+        _ = logic.settle("hello")
+        XCTAssertNil(logic.settle("hello"))
+        XCTAssertNil(logic.observe("hello"), "polling right after must not re-speak either")
+    }
+
+    func testSettleIgnoresEmptyAndRearmsNothing() {
+        var logic = SelectionWatcherLogic()
+        _ = logic.settle("hello")
+        XCTAssertNil(logic.settle("  \n"))
+        XCTAssertNil(logic.settle("hello"), "empty settle must not clear the no-repeat guard")
+    }
+
+    func testObserveClearStillRearmsAfterSettle() {
+        var logic = SelectionWatcherLogic()
+        _ = logic.settle("hello")
+        _ = logic.observe(nil)
+        XCTAssertEqual(logic.settle("hello"), "hello", "deselecting re-arms the same text")
+    }
 }

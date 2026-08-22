@@ -395,6 +395,13 @@ final class DictationController {
         HistoryStore.shared.setVote(lastRecord, vote: lastRecord.vote == -1 ? 0 : -1)
     }
 
+    /// Shows a transient notice bubble when nothing else is going on.
+    func surfaceNotice(_ message: String) {
+        guard case .idle = state else { return }
+        state = .notice(message)
+        autoDismissNotice()
+    }
+
     private static func milliseconds(_ duration: Duration) -> Int {
         Int(duration.components.seconds * 1000)
             + Int(duration.components.attoseconds / 1_000_000_000_000_000)

@@ -14,6 +14,16 @@ struct SelectionWatcherLogic {
     private var pending: String?
     private var lastSpoken: String?
 
+    /// One-shot settle signal (mouse release): speak now if non-empty and
+    /// not already spoken, no two-poll stability needed.
+    mutating func settle(_ selection: String?) -> String? {
+        let text = selection?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !text.isEmpty, text != lastSpoken else { return nil }
+        pending = nil
+        lastSpoken = text
+        return String(text.prefix(Self.maxCharacters))
+    }
+
     /// Feed one poll's selection; returns text to speak, or nil.
     mutating func observe(_ selection: String?) -> String? {
         let text = selection?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

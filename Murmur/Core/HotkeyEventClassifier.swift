@@ -16,6 +16,19 @@ enum HotkeyEventClassifier {
     static let iKeyCode: Int64 = 34
     static let oKeyCode: Int64 = 31
 
+    /// Option+Esc (macOS's own Speak Selection combo) reads the current
+    /// selection aloud, with the copy fallback for AX-blind apps.
+    /// Cmd/Ctrl variants are excluded; Cmd+Option+Esc is Force Quit.
+    static func isSpeakSelectionHotkey(
+        type: CGEventType, keyCode: Int64, flags: CGEventFlags
+    ) -> Bool {
+        type == .keyDown
+            && keyCode == escapeKeyCode
+            && flags.contains(.maskAlternate)
+            && !flags.contains(.maskCommand)
+            && !flags.contains(.maskControl)
+    }
+
     /// Classifies events for the command-mode hotkey. Escape is handled by
     /// `classify`; this only reports the command key itself.
     static func classifyCommand(

@@ -41,6 +41,7 @@ final class HotkeyService {
         let mask = (1 << CGEventType.flagsChanged.rawValue)
             | (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.keyUp.rawValue)
+            | (1 << CGEventType.leftMouseUp.rawValue)
         let callback: CGEventTapCallBack = { _, type, event, _ in
             // The tap runs on the main run loop; hop is safe to assume.
             let consumed = MainActor.assumeIsolated {
@@ -70,6 +71,19 @@ final class HotkeyService {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
             return false
+        }
+        if type == .leftMouseUp {
+            // A finished drag may be a finished text selection.
+            SelectionSpeaker.shared.mouseUpNudge()
+            return false
+        }
+        if HotkeyEventClassifier.isSpeakSelectionHotkey(
+            type: type,
+            keyCode: event.getIntegerValueField(.keyboardEventKeycode),
+            flags: event.flags
+        ), !machine.isCapturing, !commandMachine.isCapturing {
+            SelectionSpeaker.shared.speakCurrentSelection()
+            return true
         }
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let isAutorepeat = event.getIntegerValueField(.keyboardEventAutorepeat) == 1

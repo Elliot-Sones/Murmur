@@ -190,6 +190,42 @@ final class HotkeyEventClassifierTests: XCTestCase {
         )
     }
 
+    func testOptionEscapeIsTheSpeakHotkey() {
+        XCTAssertTrue(
+            HotkeyEventClassifier.isSpeakSelectionHotkey(
+                type: .keyDown, keyCode: 53, flags: .maskAlternate
+            )
+        )
+    }
+
+    func testSpeakHotkeyRejectsOtherShapes() {
+        XCTAssertFalse(
+            HotkeyEventClassifier.isSpeakSelectionHotkey(type: .keyDown, keyCode: 53, flags: []),
+            "plain Esc belongs to cancel flows"
+        )
+        XCTAssertFalse(
+            HotkeyEventClassifier.isSpeakSelectionHotkey(
+                type: .keyUp, keyCode: 53, flags: .maskAlternate
+            )
+        )
+        XCTAssertFalse(
+            HotkeyEventClassifier.isSpeakSelectionHotkey(
+                type: .keyDown, keyCode: 53, flags: [.maskAlternate, .maskCommand]
+            ),
+            "Cmd+Option+Esc is Force Quit; never touch it"
+        )
+        XCTAssertFalse(
+            HotkeyEventClassifier.isSpeakSelectionHotkey(
+                type: .keyDown, keyCode: 53, flags: [.maskAlternate, .maskControl]
+            )
+        )
+        XCTAssertFalse(
+            HotkeyEventClassifier.isSpeakSelectionHotkey(
+                type: .keyDown, keyCode: 0, flags: .maskAlternate
+            )
+        )
+    }
+
     func testCommandControlOCombo() {
         XCTAssertEqual(
             HotkeyEventClassifier.classifyCommand(
