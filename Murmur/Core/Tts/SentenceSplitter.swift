@@ -26,9 +26,10 @@ enum SentenceSplitter {
     }
 }
 
-/// Playback speed steps for the reader bar, applied via AVAudioPlayer.rate.
+/// Playback speed steps for the reader bar, applied through the time-pitch
+/// unit (AVAudioPlayer.rate would cap at 2x).
 enum ReaderSpeed {
-    static let steps: [Double] = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+    static let steps: [Double] = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
 
     static func next(after speed: Double) -> Double {
         guard let current = steps.firstIndex(where: { abs($0 - speed) < 0.001 }),

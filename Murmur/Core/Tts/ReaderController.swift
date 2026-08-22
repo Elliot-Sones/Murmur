@@ -4,10 +4,11 @@ import os
 
 /// Speechify-style reader: splits text into sentences, synthesizes them
 /// ahead of playback, and exposes play/pause, sentence skips, speed, and
-/// progress for the reader bar.
+/// progress for the reader bar. Playback runs through a time-pitch unit so
+/// speeds beyond AVAudioPlayer's 2x cap stay natural-pitched.
 @MainActor
 @Observable
-final class ReaderController: NSObject, AVAudioPlayerDelegate {
+final class ReaderController {
     static let shared = ReaderController()
 
     private let log = Logger(subsystem: "com.elliot.Murmur", category: "reader")
@@ -20,13 +21,20 @@ final class ReaderController: NSObject, AVAudioPlayerDelegate {
     var speed: Double = SettingsStore.shared.readerSpeed {
         didSet {
             SettingsStore.shared.readerSpeed = speed
-            player?.rate = Float(speed)
+            timePitch.rate = Float(speed)
         }
     }
     /// Set when synthesis fails; the bar shows it instead of controls.
     private(set) var errorMessage: String?
 
-    @ObservationIgnored private var player: AVAudioPlayer?
+    @ObservationIgnored private let engine = AVAudioEngine()
+    @ObservationIgnored private let playerNode = AVAudioPlayerNode()
+    @ObservationIgnored private let timePitch = AVAudioUnitTimePitch()
+    @ObservationIgnored private var engineWired = false
+    @ObservationIgnored private var pausedMidSentence = false
+    /// Bumped whenever the player node stops; pending buffer-completion
+    /// callbacks compare it so a skip cannot double-advance the index.
+    @ObservationIgnored private var playToken = 0
     @ObservationIgnored private var cache: [Int: Data] = [:]
     @ObservationIgnored private var fetchTasks: [Int: Task<Void, Never>] = [:]
     /// Bumped on every start/stop; stale synthesis tasks check it and bail.
@@ -61,12 +69,14 @@ final class ReaderController: NSObject, AVAudioPlayerDelegate {
     func playPause() {
         guard isActive else { return }
         if isPlaying {
-            player?.pause()
+            playerNode.pause()
+            pausedMidSentence = true
             isPlaying = false
         } else {
             isPlaying = true
-            if let player, player.currentTime > 0 {
-                player.play()
+            if pausedMidSentence {
+                pausedMidSentence = false
+                playerNode.play()
             } else {
                 playCurrent()
             }
@@ -86,8 +96,7 @@ final class ReaderController: NSObject, AVAudioPlayerDelegate {
         // single-worker server busy and starve the next reading.
         for task in fetchTasks.values { task.cancel() }
         fetchTasks = [:]
-        player?.stop()
-        player = nil
+        stopPlayback()
         sentences = []
         index = 0
         isPlaying = false
@@ -105,8 +114,7 @@ final class ReaderController: NSObject, AVAudioPlayerDelegate {
             if newIndex >= sentences.count { stop() }
             return
         }
-        player?.stop()
-        player = nil
+        stopPlayback()
         index = newIndex
         if isPlaying { playCurrent() }
     }
@@ -159,12 +167,32 @@ final class ReaderController: NSObject, AVAudioPlayerDelegate {
 
     private func play(_ data: Data) {
         do {
-            let player = try AVAudioPlayer(data: data)
-            player.delegate = self
-            player.enableRate = true
-            player.rate = Float(speed)
-            self.player = player
-            player.play()
+            // AVAudioFile needs a URL; the wav bytes take a brief trip to /tmp.
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("murmur-sentence.wav")
+            try data.write(to: url)
+            let file = try AVAudioFile(forReading: url)
+            guard let buffer = AVAudioPCMBuffer(
+                pcmFormat: file.processingFormat,
+                frameCapacity: AVAudioFrameCount(file.length)
+            ) else {
+                throw NSError(
+                    domain: "Murmur.reader", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "could not allocate audio buffer"]
+                )
+            }
+            try file.read(into: buffer)
+
+            wireEngineIfNeeded(format: file.processingFormat)
+            timePitch.rate = Float(speed)
+            if !engine.isRunning { try engine.start() }
+
+            pausedMidSentence = false
+            let token = playToken
+            playerNode.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { _ in
+                Task { @MainActor in self.sentenceFinished(token: token) }
+            }
+            playerNode.play()
         } catch {
             log.error("playback failed: \(error, privacy: .public)")
             errorMessage = "Could not play the synthesized audio."
@@ -172,17 +200,33 @@ final class ReaderController: NSObject, AVAudioPlayerDelegate {
         }
     }
 
-    // MARK: - AVAudioPlayerDelegate
+    /// Connect (or reconnect on format change) player → time-pitch → output.
+    private func wireEngineIfNeeded(format: AVAudioFormat) {
+        if !engineWired {
+            engine.attach(playerNode)
+            engine.attach(timePitch)
+            engineWired = true
+        }
+        engine.connect(playerNode, to: timePitch, format: format)
+        engine.connect(timePitch, to: engine.mainMixerNode, format: format)
+    }
 
-    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        Task { @MainActor in
-            guard isActive, isPlaying else { return }
-            if index + 1 < sentences.count {
-                index += 1
-                playCurrent()
-            } else {
-                stop()
-            }
+    private func stopPlayback() {
+        // Bump first: node.stop() fires pending completion callbacks, and a
+        // stale token keeps them from advancing the sentence index.
+        playToken += 1
+        playerNode.stop()
+        pausedMidSentence = false
+        if engine.isRunning { engine.stop() }
+    }
+
+    private func sentenceFinished(token: Int) {
+        guard token == playToken, isActive, isPlaying else { return }
+        if index + 1 < sentences.count {
+            index += 1
+            playCurrent()
+        } else {
+            stop()
         }
     }
 }
