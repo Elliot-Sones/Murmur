@@ -28,6 +28,7 @@ targets:
       path: Murmur/Info.plist
       properties:
         CFBundleDisplayName: Murmur
+        CFBundleIconFile: AppIcon
         LSUIElement: true
         NSMicrophoneUsageDescription: Murmur records your voice while you hold the dictation key. Audio never leaves this Mac.
     scheme:
