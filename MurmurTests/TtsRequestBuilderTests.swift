@@ -21,6 +21,10 @@ final class TtsRequestBuilderTests: XCTestCase {
         XCTAssertEqual(json["model"], "mlx-community/Kokoro-82M-bf16")
         XCTAssertEqual(json["input"], "Hello there")
         XCTAssertEqual(json["voice"], "bm_fable")
+        XCTAssertEqual(
+            json["response_format"], "wav",
+            "mp3 needs ffmpeg, which launchd's PATH does not have; wav needs nothing"
+        )
     }
 
     func testOmitsEmptyVoice() throws {

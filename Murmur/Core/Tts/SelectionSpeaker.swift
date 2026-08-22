@@ -61,7 +61,8 @@ final class SelectionSpeaker {
             let viaAX = SelectionCapturer.axSelectedText()
             let text = (await SelectionCapturer.capture())?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            log.notice("hotkey speak: ax \(viaAX?.count ?? -1, privacy: .public) chars, final \(text.count, privacy: .public) chars")
+            let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?"
+            log.notice("hotkey speak: front \(front, privacy: .public), ax \(viaAX?.count ?? -1, privacy: .public) chars [\(SelectionCapturer.axTrace(), privacy: .public)], final \(text.count, privacy: .public) chars")
             guard !text.isEmpty else {
                 DictationController.shared.surfaceNotice("No selected text to speak.")
                 return

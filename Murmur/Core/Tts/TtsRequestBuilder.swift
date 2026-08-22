@@ -9,7 +9,8 @@ enum TtsRequestBuilder {
         engine: TtsEngineChoice, text: String, voice: String
     ) -> URLRequest? {
         guard let model = engine.serverModel else { return nil }
-        var body: [String: String] = ["model": model, "input": text]
+        // wav: mp3 encoding needs ffmpeg, which the LaunchAgent's PATH lacks.
+        var body: [String: String] = ["model": model, "input": text, "response_format": "wav"]
         if !voice.isEmpty {
             body["voice"] = voice
         }

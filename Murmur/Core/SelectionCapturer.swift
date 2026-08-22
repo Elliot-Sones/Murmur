@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import os
 
 /// Reads the currently selected text in the focused app.
 /// Accessibility first (non-destructive); synthetic Cmd+C as fallback for
@@ -127,25 +128,70 @@ enum SelectionCapturer {
         return text
     }
 
-    private static func pasteboardCopy() async -> String? {
-        // A hotkey's own modifiers must be up before Cmd+C posts, or the
-        // app sees Cmd+Opt+C and copies nothing.
-        await KeyPoster.waitForModifierRelease()
+    private static let log = Logger(subsystem: "com.elliot.Murmur", category: "selection")
 
+    private static func pasteboardCopy() async -> String? {
         let pasteboard = NSPasteboard.general
         let snapshot = PasteboardSnapshot(capturing: pasteboard)
         let changeCountBefore = pasteboard.changeCount
 
-        KeyPoster.postCommandKey(KeyPoster.cKey)
-        // Poll rather than one fixed sleep; some apps take a few hundred ms
-        // to service a copy.
-        let deadline = ContinuousClock.now + .milliseconds(600)
+        // The app's own Edit > Copy menu item, pressed through AX, is immune
+        // to whatever modifier keys are still physically held.
+        var method = "menu"
+        if !pressEditCopyMenuItem() {
+            method = "keystroke"
+            // Without the menu item, fall back to synthetic Cmd+C, which
+            // requires the hotkey's own modifiers to be up first.
+            await KeyPoster.waitForModifierRelease()
+            KeyPoster.postCommandKey(KeyPoster.cKey)
+        }
+        // Poll rather than one fixed sleep; some apps take a while to
+        // service a copy.
+        let deadline = ContinuousClock.now + .milliseconds(1200)
         while pasteboard.changeCount == changeCountBefore, ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(25))
         }
 
         defer { snapshot.restore(to: pasteboard) }
-        guard pasteboard.changeCount != changeCountBefore else { return nil }
+        let changed = pasteboard.changeCount != changeCountBefore
+        log.notice("copy fallback via \(method, privacy: .public): pasteboard \(changed ? "changed" : "unchanged", privacy: .public)")
+        guard changed else { return nil }
         return pasteboard.string(forType: .string)
+    }
+
+    /// Finds Edit > Copy in the frontmost app's menu bar and presses it.
+    private static func pressEditCopyMenuItem() -> Bool {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return false }
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        var menuBarRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            appElement, kAXMenuBarAttribute as CFString, &menuBarRef
+        ) == .success, let menuBarRef else { return false }
+        let menuBar = menuBarRef as! AXUIElement
+        guard let editMenu = children(of: menuBar).first(where: { title(of: $0) == "Edit" })
+        else { return false }
+        // The menu's items live one level down, inside the AXMenu child.
+        for container in children(of: editMenu) {
+            if let copyItem = children(of: container).first(where: { title(of: $0) == "Copy" }) {
+                return AXUIElementPerformAction(copyItem, kAXPressAction as CFString) == .success
+            }
+        }
+        return false
+    }
+
+    private static func children(of element: AXUIElement) -> [AXUIElement] {
+        var childrenRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            element, kAXChildrenAttribute as CFString, &childrenRef
+        ) == .success, let array = childrenRef as? [AXUIElement] else { return [] }
+        return array
+    }
+
+    private static func title(of element: AXUIElement) -> String? {
+        var titleRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            element, kAXTitleAttribute as CFString, &titleRef
+        ) == .success else { return nil }
+        return titleRef as? String
     }
 }
