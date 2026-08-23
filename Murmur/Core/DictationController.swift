@@ -59,6 +59,7 @@ final class DictationController {
     private let maximumUtterance: Duration = .seconds(300)
     private var maxDurationTask: Task<Void, Never>?
     private var previewTask: Task<Void, Never>?
+    private var feedTask: Task<Void, Never>?
 
     func prepareEngines() {
         Task {
@@ -143,6 +144,7 @@ final class DictationController {
         previewText = ""
         state = .recording
         SoundCue.recordingStarted()
+        startStreamingFeed()
         if SettingsStore.shared.streamingPreviewEnabled {
             startPreviewLoop()
         }
@@ -160,6 +162,7 @@ final class DictationController {
         guard state == .recording else { return }
         maxDurationTask?.cancel()
         previewTask?.cancel()
+        feedTask?.cancel()
         let samples = recorder.stop()
         let startedAt = recordingStartedAt
         recordingStartedAt = nil
@@ -169,6 +172,7 @@ final class DictationController {
         log.notice("captured \(samples.count) samples, peak \(peak, format: .fixed(precision: 3))")
 
         guard let startedAt, ContinuousClock.now - startedAt >= minimumUtterance else {
+            Task { await transcriber.abortStream() }
             state = .idle
             return
         }
@@ -194,7 +198,7 @@ final class DictationController {
     ) async {
         let instruction: String
         do {
-            instruction = try await transcriber.transcribe(samples)
+            instruction = try await transcriber.finishStream(samples)
         } catch {
             state = .notice("Could not hear the instruction. Nothing was changed.")
             autoDismissNotice()
@@ -257,14 +261,34 @@ final class DictationController {
         guard state == .recording else { return }
         maxDurationTask?.cancel()
         previewTask?.cancel()
+        feedTask?.cancel()
+        Task { await transcriber.abortStream() }
         _ = recorder.stop()
         recordingStartedAt = nil
         state = .idle
     }
 
+    /// Feeds the growing sample buffer into the transcriber's sliding-window
+    /// session so most of the utterance is already transcribed at key release;
+    /// finishing then costs only the final partial window. Polling snapshots
+    /// (rather than tapping the audio thread) keeps feeding ordered and
+    /// survives mid-recording engine rebuilds, which preserve the buffer.
+    private func startStreamingFeed() {
+        feedTask?.cancel()
+        feedTask = Task {
+            await transcriber.beginStream()
+            while !Task.isCancelled, state == .recording {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled, state == .recording else { return }
+                await transcriber.streamSamples(recorder.snapshotSamples())
+            }
+        }
+    }
+
     /// Re-runs the batch engine over the growing buffer for a live HUD preview.
-    /// Cheap on Apple Silicon (~100 ms per tick at 110x realtime) and reuses
-    /// the exact engine that produces the final transcript.
+    /// Cheap on Apple Silicon (~100 ms per tick at 110x realtime). Display
+    /// only; the final transcript comes from the sliding-window session, which
+    /// emits no updates until ~13 s of audio exist, too late for a live HUD.
     private func startPreviewLoop() {
         previewTask?.cancel()
         previewTask = Task {
@@ -294,7 +318,7 @@ final class DictationController {
         let transcribeInterval = signposter.beginInterval("transcribe")
         let raw: String
         do {
-            raw = try await transcriber.transcribe(samples)
+            raw = try await transcriber.finishStream(samples)
         } catch is TranscriberError {
             signposter.endInterval("transcribe", transcribeInterval)
             state = .notice("Speech model is still loading. Try again in a moment.")
