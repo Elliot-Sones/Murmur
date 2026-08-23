@@ -16,6 +16,7 @@ final class AudioRecorder: @unchecked Sendable {
     private var configChangeObserver: (any NSObjectProtocol)?
     private var rebuildTask: Task<Void, Never>?
     private var voiceProcessing = false
+    private var previousDefaultInput: AudioDeviceID?
     private let log = Logger(subsystem: "com.elliot.Murmur", category: "audio")
     private let lock = NSLock()
     private var samples: [Float] = []
@@ -34,28 +35,48 @@ final class AudioRecorder: @unchecked Sendable {
         lock.withLock { samples.removeAll(keepingCapacity: true) }
         tearDownEngine()
         self.voiceProcessing = voiceProcessing
-        try startEngine()
+        do {
+            try startEngine()
+        } catch {
+            restoreDefaultInput()
+            throw error
+        }
+    }
+
+    /// Opening a Bluetooth mic drags the headphones from A2DP into HFP, so
+    /// music drops to telephone quality for the whole recording. Overriding
+    /// the device on the engine's input unit does not work: the input node
+    /// never refreshes its cached format. Instead, make the built-in mic the
+    /// system default input while recording and put the old device back after.
+    @MainActor
+    private func steerAwayFromBluetoothInput() {
+        guard let defaultInput = InputDeviceQuery.defaultID(),
+            InputDeviceQuery.isBluetooth(defaultInput),
+            let builtIn = InputDeviceQuery.builtInID(),
+            InputDeviceQuery.setDefaultInput(builtIn)
+        else { return }
+        if previousDefaultInput == nil { previousDefaultInput = defaultInput }
+        log.notice("switched default input from bluetooth to built-in mic")
+    }
+
+    @MainActor
+    private func restoreDefaultInput() {
+        guard let previous = previousDefaultInput else { return }
+        previousDefaultInput = nil
+        // The headphones may have dropped off mid-recording; only restore a
+        // device that still exists.
+        guard InputDeviceQuery.exists(previous) else { return }
+        if InputDeviceQuery.setDefaultInput(previous) {
+            log.notice("restored bluetooth default input")
+        }
     }
 
     @MainActor
     private func startEngine() throws {
+        steerAwayFromBluetoothInput()
         let engine = AVAudioEngine()
         let input = engine.inputNode
         try? input.setVoiceProcessingEnabled(voiceProcessing)
-
-        // Opening a Bluetooth mic drags the headphones from A2DP into HFP,
-        // so music drops to telephone quality for the whole recording.
-        // Capture from the built-in mic instead; playback stays untouched.
-        if let defaultInput = InputDeviceQuery.defaultID(),
-            InputDeviceQuery.isBluetooth(defaultInput),
-            let builtIn = InputDeviceQuery.builtInID() {
-            do {
-                try input.auAudioUnit.setDeviceID(builtIn)
-                log.notice("bluetooth default input; capturing from built-in mic instead")
-            } catch {
-                log.error("could not steer capture to built-in mic: \(error.localizedDescription)")
-            }
-        }
 
         let inputFormat = input.outputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
@@ -132,6 +153,7 @@ final class AudioRecorder: @unchecked Sendable {
         rebuildTask?.cancel()
         rebuildTask = nil
         tearDownEngine()
+        restoreDefaultInput()
         return lock.withLock { samples }
     }
 
@@ -214,6 +236,29 @@ enum InputDeviceQuery {
 
     /// First built-in device with input streams, or nil on Macs without one.
     static func builtInID() -> AudioDeviceID? {
+        allDevices().first { device in
+            transportType(of: device) == kAudioDeviceTransportTypeBuiltIn && hasInput(device)
+        }
+    }
+
+    static func setDefaultInput(_ deviceID: AudioDeviceID) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var device = deviceID
+        return AudioObjectSetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil,
+            UInt32(MemoryLayout<AudioDeviceID>.size), &device
+        ) == noErr
+    }
+
+    static func exists(_ deviceID: AudioDeviceID) -> Bool {
+        allDevices().contains(deviceID)
+    }
+
+    private static func allDevices() -> [AudioDeviceID] {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -222,16 +267,14 @@ enum InputDeviceQuery {
         var size = UInt32(0)
         guard AudioObjectGetPropertyDataSize(
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size
-        ) == noErr else { return nil }
+        ) == noErr else { return [] }
         var devices = [AudioDeviceID](
             repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size
         )
         guard AudioObjectGetPropertyData(
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &devices
-        ) == noErr else { return nil }
-        return devices.first { device in
-            transportType(of: device) == kAudioDeviceTransportTypeBuiltIn && hasInput(device)
-        }
+        ) == noErr else { return [] }
+        return devices
     }
 
     private static func transportType(of deviceID: AudioDeviceID) -> UInt32? {
