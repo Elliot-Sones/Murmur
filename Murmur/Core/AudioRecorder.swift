@@ -15,6 +15,8 @@ final class AudioRecorder: @unchecked Sendable {
     private var engine: AVAudioEngine?
     private var configChangeObserver: (any NSObjectProtocol)?
     private var rebuildTask: Task<Void, Never>?
+    private var restoreTask: Task<Void, Never>?
+    private var watchdogTask: Task<Void, Never>?
     private var voiceProcessing = false
     private var previousDefaultInput: AudioDeviceID?
     private let log = Logger(subsystem: "com.elliot.Murmur", category: "audio")
@@ -32,15 +34,18 @@ final class AudioRecorder: @unchecked Sendable {
     func start(voiceProcessing: Bool) throws {
         rebuildTask?.cancel()
         rebuildTask = nil
+        restoreTask?.cancel()
+        restoreTask = nil
         lock.withLock { samples.removeAll(keepingCapacity: true) }
         tearDownEngine()
         self.voiceProcessing = voiceProcessing
         do {
             try startEngine()
         } catch {
-            restoreDefaultInput()
+            scheduleRestore()
             throw error
         }
+        startWatchdog()
     }
 
     /// Opening a Bluetooth mic drags the headphones from A2DP into HFP, so
@@ -57,6 +62,50 @@ final class AudioRecorder: @unchecked Sendable {
         else { return }
         if previousDefaultInput == nil { previousDefaultInput = defaultInput }
         log.notice("switched default input from bluetooth to built-in mic")
+    }
+
+    /// Every default-input flip gives CoreAudio a fresh chance to hand the
+    /// next engine a dead or transitional device, and rapid dictations were
+    /// hitting exactly that. Hold the built-in mic between dictations and
+    /// put the Bluetooth device back only after things go quiet.
+    @MainActor
+    private func scheduleRestore() {
+        restoreTask?.cancel()
+        restoreTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(12))
+            guard !Task.isCancelled else { return }
+            self?.restoreDefaultInput()
+        }
+    }
+
+    /// The HAL can wedge during device churn: the engine starts cleanly but
+    /// the tap never fires, with no error and no notification. Any healthy
+    /// recording appends samples continuously (silence still converts), so a
+    /// flat sample count across a tick means the capture path is dead.
+    @MainActor
+    private func startWatchdog() {
+        watchdogTask?.cancel()
+        watchdogTask = Task { @MainActor [weak self] in
+            var lastCount = 0
+            var stalls = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(800))
+                guard let self, !Task.isCancelled, self.engine != nil else { return }
+                let count = self.lock.withLock { self.samples.count }
+                if count > lastCount {
+                    lastCount = count
+                    stalls = 0
+                    continue
+                }
+                stalls += 1
+                guard stalls <= 3 else {
+                    self.log.error("capture still stalled after 3 rebuilds; giving up")
+                    return
+                }
+                self.log.notice("no audio for 800 ms; rebuilding engine (stall \(stalls))")
+                self.rebuild(attempt: 1)
+            }
+        }
     }
 
     @MainActor
@@ -152,8 +201,10 @@ final class AudioRecorder: @unchecked Sendable {
     func stop() -> [Float] {
         rebuildTask?.cancel()
         rebuildTask = nil
+        watchdogTask?.cancel()
+        watchdogTask = nil
         tearDownEngine()
-        restoreDefaultInput()
+        scheduleRestore()
         return lock.withLock { samples }
     }
 

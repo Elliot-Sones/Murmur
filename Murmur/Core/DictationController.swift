@@ -133,7 +133,7 @@ final class DictationController {
         do {
             try recorder.start(voiceProcessing: SettingsStore.shared.voiceProcessingEnabled)
         } catch {
-            state = .notice("Microphone unavailable. Check permissions.")
+            state = .notice("The microphone was not ready. Dictate again.")
             autoDismissNotice()
             return
         }
