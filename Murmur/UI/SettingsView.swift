@@ -19,6 +19,9 @@ struct SettingsView: View {
             HistoryView()
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
                 .tag("history")
+            MeetingsSettingsTab()
+                .tabItem { Label("Meetings", systemImage: "waveform.and.mic") }
+                .tag("meetings")
         }
         .frame(width: 560, height: 520)
     }

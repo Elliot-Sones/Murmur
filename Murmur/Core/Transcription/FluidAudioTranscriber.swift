@@ -14,40 +14,18 @@ actor FluidAudioTranscriber: TranscriptionService {
     private var models: AsrModels?
     private var window: SlidingWindowAsrManager?
     private var windowFedSamples = 0
-    /// FluidAudio recycles MLMultiArrays through one global cache shared by
-    /// every ASR engine instance, and returning an array zeroes memory another
-    /// in-flight prediction may still read (observed as libmalloc free-block
-    /// corruption). Batch passes and stream finishes therefore take turns
-    /// through this slot; window-chunk processing during recording is kept
-    /// exclusive by the preview cutoff in DictationController instead.
-    ///
-    /// FIFO handoff via continuations, deliberately not a polling loop: value
-    /// futures throw immediately for a cancelled awaiter, and a `while`/`try?`
-    /// retry then spins hot enough to starve the cooperative pool and
-    /// livelock the pipeline (seen in the field as a dictation stuck on
-    /// "Transcribing"). Continuations sit out cancellation, so a cancelled
-    /// preview pass simply waits its turn and finishes quietly.
-    private var slotBusy = false
-    private var slotWaiters: [CheckedContinuation<Void, Never>] = []
-
+    /// All inference goes through the app-wide gate (see InferenceGate);
+    /// window-chunk processing during recording is additionally kept off the
+    /// batch path by the preview cutoff in DictationController.
     private func withInferenceSlot<T: Sendable>(
-        _ body: () async throws -> T
+        _ body: @Sendable () async throws -> T
     ) async rethrows -> T {
-        if slotBusy {
-            await withCheckedContinuation { slotWaiters.append($0) }
-        } else {
-            slotBusy = true
-        }
-        defer {
-            if slotWaiters.isEmpty {
-                slotBusy = false
-            } else {
-                // Hand the slot straight to the next waiter.
-                slotWaiters.removeFirst().resume()
-            }
-        }
-        return try await body()
+        try await InferenceGate.shared.run(body)
     }
+
+    /// The loaded CoreML models, shared by reference with meeting sessions
+    /// so meetings add no model memory. Nil until prepare() finishes.
+    func loadedModels() -> AsrModels? { models }
 
     private static let streamFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32, sampleRate: 16_000, channels: 1, interleaved: false

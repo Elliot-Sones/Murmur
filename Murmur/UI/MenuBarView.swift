@@ -18,6 +18,15 @@ struct MenuBarView: View {
             Text("Cleanup: \(stats.engine)")
         }
         Divider()
+        if MeetingController.shared.isRecording {
+            Button("End Meeting Notes") { MeetingController.shared.endMeeting() }
+        } else {
+            Button("Start Meeting Notes") { MeetingController.shared.startMeeting() }
+        }
+        if case .failed(let message) = MeetingController.shared.state {
+            Text(message)
+        }
+        Divider()
         Toggle("AI Cleanup", isOn: Binding(
             get: { settings.cleanupEnabled },
             set: { settings.cleanupEnabled = $0 }

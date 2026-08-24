@@ -43,6 +43,8 @@ final class DictationController {
 
     @ObservationIgnored private let recorder = AudioRecorder()
     @ObservationIgnored private let transcriber: any TranscriptionService = FluidAudioTranscriber()
+    /// Meetings borrow the loaded speech models from here.
+    var transcriberService: any TranscriptionService { transcriber }
     @ObservationIgnored private let cleanup = FoundationModelsCleanup()
     @ObservationIgnored private let ollamaCleanup = OllamaCleanup()
     @ObservationIgnored private let rawCleanup = RawPassthroughCleanup()
