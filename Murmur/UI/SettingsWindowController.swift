@@ -17,7 +17,7 @@ final class SettingsWindowController {
             let hosting = NSHostingController(rootView: SettingsView())
             let newWindow = NSWindow(contentViewController: hosting)
             newWindow.title = "Murmur Settings"
-            newWindow.styleMask = [.titled, .closable]
+            newWindow.styleMask = [.titled, .closable, .resizable, .miniaturizable]
             newWindow.isReleasedWhenClosed = false
             // Windows created during menu-bar tracking inherit an elevated
             // level and float over other apps; pin to normal.

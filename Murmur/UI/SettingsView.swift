@@ -23,7 +23,8 @@ struct SettingsView: View {
                 .tabItem { Label("Meetings", systemImage: "waveform.and.mic") }
                 .tag("meetings")
         }
-        .frame(width: 560, height: 520)
+        .frame(minWidth: 700, idealWidth: 860, maxWidth: .infinity,
+               minHeight: 480, idealHeight: 600, maxHeight: .infinity)
     }
 }
 

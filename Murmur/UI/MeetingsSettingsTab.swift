@@ -1,12 +1,10 @@
 import SwiftUI
 
-/// Meetings page: searchable list on the left, transcript + notes detail on
-/// the right. Live meetings stream text in as windows confirm.
-///
-/// Visual language: light-blue accent over system backgrounds. Transcript
-/// reads as a conversation: Them on the left in neutral bubbles, Me on the
-/// right in tinted bubbles. All colors are washes over semantic system
-/// colors so both appearances keep AA contrast.
+/// Meetings page in the Granola idiom: a clean centered document with a big
+/// title and metadata chips, transcript set as readable speaker-labeled
+/// paragraphs (no chat bubbles), a quiet action rail on the right, and a
+/// floating pill toolbar to switch Transcript/Notes. The whole page sits on
+/// a soft light-blue wash; the document itself is a white card.
 struct MeetingsSettingsTab: View {
     private var store: MeetingStore { .shared }
     private var meetingController: MeetingController { .shared }
@@ -17,31 +15,45 @@ struct MeetingsSettingsTab: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum DetailTab: String, CaseIterable {
-        case transcript = "Transcript"
-        case notes = "Notes"
+        case transcript
+        case notes
+
+        var icon: String {
+            switch self {
+            case .transcript: "text.alignleft"
+            case .notes: "square.and.pencil"
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .transcript: "Transcript"
+            case .notes: "My notes"
+            }
+        }
     }
 
     private enum Theme {
         static let tint = Color(red: 0.29, green: 0.56, blue: 0.89)
-        static let wash = tint.opacity(0.07)
-        static let bubbleMe = tint.opacity(0.16)
-        static let bubbleThem = Color.primary.opacity(0.055)
+        static let pageTop = Color(red: 0.94, green: 0.965, blue: 1.0)
+        static let pageBottom = Color(red: 0.88, green: 0.93, blue: 0.99)
+        static let meLabel = tint
+        static let themLabel = Color(red: 0.42, green: 0.49, blue: 0.56)
     }
 
     var body: some View {
         HSplitView {
             meetingList
-                .frame(minWidth: 225, idealWidth: 250, maxWidth: 300)
-            detail
-                .frame(minWidth: 380, maxWidth: .infinity, maxHeight: .infinity)
-                .background(Theme.wash)
+                .frame(minWidth: 200, idealWidth: 230, maxWidth: 280)
+            detailSurface
+                .frame(minWidth: 460, maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
             if selectedId == nil { selectedId = store.meetings.first?.id }
         }
     }
 
-    // MARK: - List
+    // MARK: - Sidebar
 
     private var filteredMeetings: [MeetingRecord] {
         guard !search.isEmpty else { return store.meetings }
@@ -57,16 +69,31 @@ struct MeetingsSettingsTab: View {
         VStack(spacing: 0) {
             List(selection: $selectedId) {
                 ForEach(filteredMeetings) { meeting in
-                    row(meeting)
-                        .tag(meeting.id)
-                        .listRowSeparator(.hidden)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            if meeting.id == meetingController.liveMeetingId {
+                                Circle().fill(.red).frame(width: 7, height: 7)
+                                    .accessibilityLabel("Recording")
+                            }
+                            Text(meeting.title)
+                                .font(.callout.weight(.medium))
+                                .lineLimit(1)
+                        }
+                        Text(subtitle(meeting))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                    }
+                    .padding(.vertical, 3)
+                    .tag(meeting.id)
+                    .listRowSeparator(.hidden)
+                    .accessibilityElement(children: .combine)
                 }
             }
             .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
             Divider()
-            startStopButton
-                .padding(10)
+            startStopButton.padding(10)
         }
         .searchable(text: $search, placement: .sidebar, prompt: "Search meetings")
     }
@@ -96,35 +123,6 @@ struct MeetingsSettingsTab: View {
         }
     }
 
-    private func row(_ meeting: MeetingRecord) -> some View {
-        HStack(spacing: 9) {
-            ZStack {
-                Circle()
-                    .fill(meeting.id == meetingController.liveMeetingId ? Color.red.opacity(0.14) : Theme.tint.opacity(0.14))
-                    .frame(width: 30, height: 30)
-                Image(
-                    systemName: meeting.id == meetingController.liveMeetingId
-                        ? "record.circle" : "waveform.and.mic"
-                )
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(meeting.id == meetingController.liveMeetingId ? Color.red : Theme.tint)
-            }
-            .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(meeting.title)
-                    .font(.callout.weight(.medium))
-                    .lineLimit(1)
-                Text(subtitle(meeting))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                    .lineLimit(1)
-            }
-        }
-        .padding(.vertical, 3)
-        .accessibilityElement(children: .combine)
-    }
-
     private func subtitle(_ meeting: MeetingRecord) -> String {
         let date = meeting.startedAt.formatted(.dateTime.month(.abbreviated).day().hour().minute())
         if meeting.id == meetingController.liveMeetingId { return "Recording · \(date)" }
@@ -132,185 +130,152 @@ struct MeetingsSettingsTab: View {
         return "\(date) · \(max(1, Int(meeting.durationSeconds / 60))) min"
     }
 
-    // MARK: - Detail
+    // MARK: - Detail surface (tinted page + document + rail)
 
     @ViewBuilder
-    private var detail: some View {
-        if let meeting = store.meetings.first(where: { $0.id == selectedId }) {
-            VStack(alignment: .leading, spacing: 12) {
-                header(meeting)
-                Picker("", selection: $detailTab) {
-                    ForEach(DetailTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
+    private var detailSurface: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Theme.pageTop, Theme.pageBottom],
+                startPoint: .top, endPoint: .bottom
+            )
+            .ignoresSafeArea()
+            if let meeting = store.meetings.first(where: { $0.id == selectedId }) {
+                HStack(spacing: 0) {
+                    documentCard(meeting)
+                        .padding([.top, .leading, .bottom], 14)
+                    actionRail(meeting)
+                        .frame(width: 168)
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 10)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 220)
-                Group {
-                    switch detailTab {
-                    case .transcript: transcript(meeting)
-                    case .notes: notesEditor(meeting)
-                    }
-                }
-                .background(.background.opacity(0.65), in: RoundedRectangle(cornerRadius: 10))
+            } else {
+                emptyState
             }
-            .padding(14)
-        } else {
-            emptyState
         }
     }
 
-    private func header(_ meeting: MeetingRecord) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 8) {
-                TextField(
-                    "Title",
-                    text: Binding(
-                        get: { meeting.title },
-                        set: { store.rename(meeting.id, to: $0) }
-                    )
-                )
-                .textFieldStyle(.plain)
-                .font(.title3.weight(.semibold))
-                Spacer(minLength: 8)
-                Button {
-                    copyTranscript(meeting)
-                } label: {
-                    Image(systemName: "doc.on.doc")
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(Theme.tint)
-                .help("Copy transcript")
-                .accessibilityLabel("Copy transcript")
-                .disabled(meeting.segments.isEmpty)
-                Button {
-                    confirmingDelete = true
-                } label: {
-                    Image(systemName: "trash")
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.red.opacity(0.8))
-                .help("Delete meeting")
-                .accessibilityLabel("Delete meeting")
-                .disabled(meeting.id == meetingController.liveMeetingId)
-                .confirmationDialog(
-                    "Delete this meeting and its transcript?", isPresented: $confirmingDelete
-                ) {
-                    Button("Delete", role: .destructive) {
-                        store.delete(meeting.id)
-                        selectedId = store.meetings.first?.id
+    private func documentCard(_ meeting: MeetingRecord) -> some View {
+        ZStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        documentHeader(meeting)
+                        switch detailTab {
+                        case .transcript: transcriptDocument(meeting)
+                        case .notes: EmptyView()
+                        }
                     }
+                    .padding(.horizontal, 34)
+                    .padding(.top, 30)
+                    .padding(.bottom, 70)
+                    .frame(maxWidth: 660, alignment: .leading)
+                    .frame(maxWidth: .infinity)
+                }
+                if detailTab == .notes {
+                    notesEditor(meeting)
+                        .padding(.horizontal, 26)
+                        .padding(.bottom, 60)
                 }
             }
-            HStack(spacing: 6) {
-                chip(
-                    icon: "calendar",
-                    text: meeting.startedAt.formatted(date: .abbreviated, time: .shortened)
+            pillToolbar
+                .padding(.bottom, 14)
+        }
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.07), radius: 10, y: 3)
+    }
+
+    private func documentHeader(_ meeting: MeetingRecord) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField(
+                "Title",
+                text: Binding(
+                    get: { meeting.title },
+                    set: { store.rename(meeting.id, to: $0) }
                 )
+            )
+            .textFieldStyle(.plain)
+            .font(.system(size: 22, weight: .bold))
+            HStack(spacing: 6) {
+                chip(icon: "calendar", text: dayLabel(meeting.startedAt))
                 if meeting.id == meetingController.liveMeetingId {
                     chip(icon: "record.circle", text: "Recording", tint: .red)
                 } else if meeting.durationSeconds > 0 {
                     chip(icon: "clock", text: "\(max(1, Int(meeting.durationSeconds / 60))) min")
                 }
-                if !meeting.segments.isEmpty {
-                    chip(icon: "text.alignleft", text: "\(meeting.segments.count) segments")
-                }
             }
         }
     }
 
-    private func chip(icon: String, text: String, tint: Color = Theme.tint) -> some View {
+    private func chip(icon: String, text: String, tint: Color? = nil) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon).font(.system(size: 9, weight: .semibold))
             Text(text).font(.caption)
         }
-        .foregroundStyle(tint == Theme.tint ? Color.secondary : tint)
+        .foregroundStyle(tint ?? Color.secondary)
         .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(tint.opacity(0.1), in: Capsule())
+        .padding(.vertical, 4)
+        .background(.quinary, in: RoundedRectangle(cornerRadius: 6))
         .monospacedDigit()
     }
 
-    // MARK: - Transcript (conversation view)
+    // MARK: - Transcript as a document
 
-    private func transcript(_ meeting: MeetingRecord) -> some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 10) {
-                    ForEach(Array(meeting.segments.enumerated()), id: \.offset) { index, segment in
-                        bubble(segment)
-                            .id(index)
+    @ViewBuilder
+    private func transcriptDocument(_ meeting: MeetingRecord) -> some View {
+        if meeting.segments.isEmpty {
+            transcriptEmpty(meeting)
+                .frame(maxWidth: .infinity, minHeight: 200)
+        } else {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                ForEach(Array(meeting.segments.enumerated()), id: \.offset) { index, segment in
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text(segment.source == "me" ? "Me" : "Them")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(
+                                    segment.source == "me" ? Theme.meLabel : Theme.themLabel
+                                )
+                            Text(timestamp(segment.offset))
+                                .font(.caption2)
+                                .monospacedDigit()
+                                .foregroundStyle(.quaternary)
+                        }
+                        Text(segment.text)
+                            .font(.system(size: 13.5))
+                            .lineSpacing(4)
+                            .foregroundStyle(.primary.opacity(0.88))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity)
-            }
-            .overlay {
-                if meeting.segments.isEmpty {
-                    transcriptEmptyOverlay(meeting)
-                }
-            }
-            .onChange(of: meeting.segments.count) {
-                guard meeting.id == meetingController.liveMeetingId else { return }
-                if reduceMotion {
-                    proxy.scrollTo(meeting.segments.count - 1, anchor: .bottom)
-                } else {
-                    withAnimation(.easeOut(duration: 0.25)) {
-                        proxy.scrollTo(meeting.segments.count - 1, anchor: .bottom)
-                    }
+                    .id(index)
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
-    }
-
-    private func bubble(_ segment: MeetingSegment) -> some View {
-        let isMe = segment.source == "me"
-        return VStack(alignment: isMe ? .trailing : .leading, spacing: 3) {
-            HStack(spacing: 5) {
-                Text(isMe ? "Me" : "Them")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(isMe ? Theme.tint : .secondary)
-                Text(timestamp(segment.offset))
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(.tertiary)
-            }
-            Text(segment.text)
-                .font(.callout)
-                .lineSpacing(2.5)
-                .textSelection(.enabled)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 7)
-                .background(
-                    isMe ? Theme.bubbleMe : Theme.bubbleThem,
-                    in: RoundedRectangle(cornerRadius: 11)
-                )
-        }
-        .frame(maxWidth: .infinity, alignment: isMe ? .trailing : .leading)
-        .padding(isMe ? .leading : .trailing, 60)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(isMe ? "Me" : "Them"), \(timestamp(segment.offset)): \(segment.text)")
     }
 
     @ViewBuilder
-    private func transcriptEmptyOverlay(_ meeting: MeetingRecord) -> some View {
+    private func transcriptEmpty(_ meeting: MeetingRecord) -> some View {
         if meeting.id == meetingController.liveMeetingId {
             VStack(spacing: 8) {
                 Image(systemName: "waveform")
-                    .font(.title2)
+                    .font(.title3)
                     .foregroundStyle(Theme.tint)
-                    .symbolEffect(.variableColor.iterative, options: .repeating, isActive: !reduceMotion)
-                Text("Listening…")
-                    .font(.callout.weight(.medium))
-                Text("Text appears as each chunk of speech is confirmed.")
+                    .symbolEffect(
+                        .variableColor.iterative, options: .repeating, isActive: !reduceMotion
+                    )
+                Text("Listening…").font(.callout.weight(.medium))
+                Text("Text appears here as each chunk of speech is confirmed.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity)
         } else {
             Text("No speech was transcribed in this meeting.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -321,19 +286,134 @@ struct MeetingsSettingsTab: View {
                 set: { store.saveNotes($0, for: meeting.id) }
             )
         )
-        .font(.body)
+        .font(.system(size: 13.5))
+        .lineSpacing(4)
         .scrollContentBackground(.hidden)
-        .padding(8)
         .overlay(alignment: .topLeading) {
             if meeting.notes.isEmpty {
-                Text("Type rough notes during the meeting; the summary will use them as anchors.")
+                Text("Type rough notes; the summary will use them as anchors.")
+                    .font(.system(size: 13.5))
                     .foregroundStyle(.tertiary)
-                    .padding(.top, 16)
-                    .padding(.leading, 13)
+                    .padding(.top, 8)
+                    .padding(.leading, 5)
                     .allowsHitTesting(false)
             }
         }
     }
+
+    // MARK: - Floating pill toolbar
+
+    private var pillToolbar: some View {
+        HStack(spacing: 2) {
+            ForEach(DetailTab.allCases, id: \.self) { tab in
+                Button {
+                    detailTab = tab
+                } label: {
+                    Label(tab.label, systemImage: tab.icon)
+                        .labelStyle(.iconOnly)
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 34, height: 26)
+                        .background(
+                            detailTab == tab ? Theme.tint.opacity(0.16) : .clear,
+                            in: RoundedRectangle(cornerRadius: 7)
+                        )
+                        .foregroundStyle(detailTab == tab ? Theme.tint : Color.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(tab.label)
+                .accessibilityLabel(tab.label)
+                .accessibilityAddTraits(detailTab == tab ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(.quaternary, lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: detailTab)
+    }
+
+    // MARK: - Action rail
+
+    private func actionRail(_ meeting: MeetingRecord) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            railSection("Share notes") {
+                railButton("Copy transcript", icon: "doc.on.doc", disabled: meeting.segments.isEmpty) {
+                    copyTranscript(meeting)
+                }
+                railButton("Export Markdown", icon: "arrow.down.doc", disabled: meeting.segments.isEmpty) {
+                    exportMarkdown(meeting)
+                }
+            }
+            railSection("Details") {
+                railFact(icon: "calendar", meeting.startedAt.formatted(date: .abbreviated, time: .shortened))
+                if meeting.durationSeconds > 0 {
+                    railFact(icon: "clock", "\(max(1, Int(meeting.durationSeconds / 60))) min")
+                }
+                railFact(icon: "text.alignleft", "\(meeting.segments.count) segments")
+            }
+            Spacer()
+            Button(role: .destructive) {
+                confirmingDelete = true
+            } label: {
+                Label("Delete meeting", systemImage: "trash")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.red.opacity(0.75))
+            .disabled(meeting.id == meetingController.liveMeetingId)
+            .confirmationDialog(
+                "Delete this meeting and its transcript?", isPresented: $confirmingDelete
+            ) {
+                Button("Delete", role: .destructive) {
+                    store.delete(meeting.id)
+                    selectedId = store.meetings.first?.id
+                }
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func railSection(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .kerning(0.6)
+                .foregroundStyle(.tertiary)
+            content()
+        }
+    }
+
+    private func railButton(
+        _ title: String, icon: String, disabled: Bool, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.caption)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 6)
+                .background(.background.opacity(0.75), in: RoundedRectangle(cornerRadius: 7))
+                .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(.quaternary, lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.45 : 1)
+    }
+
+    private func railFact(icon: String, _ text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .frame(width: 12)
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+    }
+
+    // MARK: - Empty state
 
     private var emptyState: some View {
         VStack(spacing: 12) {
@@ -364,16 +444,39 @@ struct MeetingsSettingsTab: View {
 
     // MARK: - Helpers
 
+    private func dayLabel(_ date: Date) -> String {
+        if Calendar.current.isDateInToday(date) { return "Today" }
+        if Calendar.current.isDateInYesterday(date) { return "Yesterday" }
+        return date.formatted(date: .abbreviated, time: .omitted)
+    }
+
     private func timestamp(_ offset: Double) -> String {
         let total = Int(offset)
         return String(format: "%d:%02d", total / 60, total % 60)
     }
 
-    private func copyTranscript(_ meeting: MeetingRecord) {
-        let text = meeting.segments.map { segment in
+    private func transcriptText(_ meeting: MeetingRecord) -> String {
+        meeting.segments.map { segment in
             "[\(timestamp(segment.offset))] \(segment.source == "me" ? "Me" : "Them"): \(segment.text)"
         }.joined(separator: "\n")
+    }
+
+    private func copyTranscript(_ meeting: MeetingRecord) {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.setString(transcriptText(meeting), forType: .string)
+    }
+
+    private func exportMarkdown(_ meeting: MeetingRecord) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "\(meeting.title).md"
+        panel.allowedContentTypes = [.init(filenameExtension: "md") ?? .plainText]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        var lines = ["# \(meeting.title)", ""]
+        lines.append("_\(meeting.startedAt.formatted(date: .abbreviated, time: .shortened))_")
+        if !meeting.notes.isEmpty {
+            lines += ["", "## Notes", "", meeting.notes]
+        }
+        lines += ["", "## Transcript", "", transcriptText(meeting)]
+        try? lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
     }
 }
