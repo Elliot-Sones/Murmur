@@ -6,6 +6,10 @@ enum KeyPoster {
     static let vKey: CGKeyCode = 9
     static let cKey: CGKeyCode = 8
 
+    /// Stamped on our synthetic events so the hotkey tap can tell them apart
+    /// from physical keystrokes and from events other software synthesizes.
+    static let syntheticUserData: Int64 = 0x4D_75_72_6D  // "Murm"
+
     static func postCommandKey(_ virtualKey: CGKeyCode) {
         guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
         for keyDown in [true, false] {
@@ -13,6 +17,7 @@ enum KeyPoster {
                 keyboardEventSource: source, virtualKey: virtualKey, keyDown: keyDown
             ) else { continue }
             event.flags = .maskCommand
+            event.setIntegerValueField(.eventSourceUserData, value: syntheticUserData)
             event.post(tap: .cghidEventTap)
         }
     }

@@ -76,6 +76,13 @@ final class HotkeyService {
             SelectionSpeaker.shared.mouseUpNudge()
             return false
         }
+        // Temporary diagnostic for doubled paste: the tap sees every session
+        // keystroke, so count V-downs and whether each one is ours.
+        if type == .keyDown, event.getIntegerValueField(.keyboardEventKeycode) == Int64(KeyPoster.vKey) {
+            let userData = event.getIntegerValueField(.eventSourceUserData)
+            let origin = userData == KeyPoster.syntheticUserData ? "murmur" : "other"
+            log.notice("V-down seen: origin=\(origin, privacy: .public) flags=\(event.flags.rawValue) autorepeat=\(event.getIntegerValueField(.keyboardEventAutorepeat))")
+        }
         if HotkeyEventClassifier.isSpeakSelectionHotkey(
             type: type,
             keyCode: event.getIntegerValueField(.keyboardEventKeycode),
