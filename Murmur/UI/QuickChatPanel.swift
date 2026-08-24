@@ -6,7 +6,10 @@ import SwiftUI
 @MainActor
 final class QuickChatPanelController {
     static let shared = QuickChatPanelController()
+    static let baseHeight: CGFloat = 56
     private var panel: KeyablePanel?
+    /// Fixed top edge; the mention dropdown grows the panel downward from it.
+    private var topY: CGFloat = 0
 
     var isVisible: Bool { panel?.isVisible ?? false }
 
@@ -29,18 +32,24 @@ final class QuickChatPanelController {
             panel = newPanel
         }
         guard let panel, let screen = NSScreen.main else { return }
-        let size = NSSize(width: 560, height: 56)
-        panel.setFrame(
-            NSRect(
-                origin: NSPoint(
-                    x: screen.visibleFrame.midX - size.width / 2,
-                    y: screen.visibleFrame.minY + screen.visibleFrame.height * 0.62
-                ),
-                size: size
-            ),
-            display: true
+        let size = NSSize(width: 560, height: Self.baseHeight)
+        let origin = NSPoint(
+            x: screen.visibleFrame.midX - size.width / 2,
+            y: screen.visibleFrame.minY + screen.visibleFrame.height * 0.62
         )
+        topY = origin.y + size.height
+        panel.setFrame(NSRect(origin: origin, size: size), display: true)
         panel.makeKeyAndOrderFront(nil)
+    }
+
+    /// The content view drives this as the mention dropdown appears and hides.
+    func setHeight(_ height: CGFloat) {
+        guard let panel, panel.isVisible else { return }
+        var frame = panel.frame
+        guard frame.height != height else { return }
+        frame.origin.y = topY - height
+        frame.size.height = height
+        panel.setFrame(frame, display: true)
     }
 
     func hide() {
@@ -67,8 +76,40 @@ private final class KeyablePanel: NSPanel {
 private struct QuickChatView: View {
     @Bindable private var chat = QuickChatController.shared
     @FocusState private var focused: Bool
+    @State private var highlighted = 0
+
+    private static let rowHeight: CGFloat = 30
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            inputRow
+                .frame(height: QuickChatPanelController.baseHeight - 8)
+            if !suggestions.isEmpty {
+                Divider().padding(.horizontal, 12)
+                VStack(spacing: 0) {
+                    ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, agent in
+                        suggestionRow(agent, isHighlighted: index == highlighted)
+                            .onTapGesture { accept(agent) }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .padding(4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .onAppear {
+            focused = true
+            highlighted = 0
+        }
+        .onChange(of: chat.draft) {
+            highlighted = 0
+            resize()
+        }
+        .onChange(of: chat.agents) { resize() }
+    }
+
+    private var inputRow: some View {
         HStack(spacing: 10) {
             Menu {
                 Button("Anyone") { chat.selectedAgentId = nil }
@@ -88,23 +129,104 @@ private struct QuickChatView: View {
             .fixedSize()
             .help("Choose which agent gets the message")
 
-            TextField("Message an agent…", text: $chat.draft)
+            TextField("Message an agent… type @ to pick one", text: $chat.draft)
                 .textFieldStyle(.plain)
                 .font(.title3)
                 .focused($focused)
-                .onSubmit { chat.send() }
+                .onSubmit {
+                    if let agent = suggestions[safe: highlighted] {
+                        accept(agent)
+                    } else {
+                        chat.send()
+                    }
+                }
+                .onKeyPress(.downArrow) { moveHighlight(1) }
+                .onKeyPress(.upArrow) { moveHighlight(-1) }
+                .onKeyPress(.tab) {
+                    guard let agent = suggestions[safe: highlighted] else { return .ignored }
+                    accept(agent)
+                    return .handled
+                }
 
             Text("↩ send · esc close")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
-        .padding(.horizontal, 16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .onAppear { focused = true }
+        .padding(.horizontal, 12)
+    }
+
+    private func suggestionRow(_ agent: MausBot, isHighlighted: Bool) -> some View {
+        HStack {
+            Text(agent.name).font(.callout)
+            Spacer()
+            if isHighlighted {
+                Text("↩")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: Self.rowHeight)
+        .background(
+            isHighlighted ? Color.accentColor.opacity(0.18) : Color.clear,
+            in: RoundedRectangle(cornerRadius: 8)
+        )
+        .contentShape(Rectangle())
+    }
+
+    // MARK: - Mention parsing
+
+    /// The trailing "@query" token being typed, if any: an @ at the start of
+    /// the draft or after whitespace, with no space after it.
+    private var mentionRange: Range<String.Index>? {
+        guard let atIndex = chat.draft.lastIndex(of: "@") else { return nil }
+        let after = chat.draft[chat.draft.index(after: atIndex)...]
+        guard !after.contains(where: \.isWhitespace) else { return nil }
+        if atIndex != chat.draft.startIndex {
+            guard chat.draft[chat.draft.index(before: atIndex)].isWhitespace else { return nil }
+        }
+        return atIndex..<chat.draft.endIndex
+    }
+
+    private var suggestions: [MausBot] {
+        guard let mentionRange else { return [] }
+        let query = chat.draft[chat.draft.index(after: mentionRange.lowerBound)...].lowercased()
+        guard !query.isEmpty else { return chat.agents }
+        let prefixed = chat.agents.filter { $0.name.lowercased().hasPrefix(query) }
+        let contained = chat.agents.filter {
+            !$0.name.lowercased().hasPrefix(query) && $0.name.lowercased().contains(query)
+        }
+        return prefixed + contained
+    }
+
+    private func accept(_ agent: MausBot) {
+        chat.selectedAgentId = agent.id
+        if let mentionRange {
+            chat.draft.removeSubrange(mentionRange)
+        }
+        focused = true
+    }
+
+    private func moveHighlight(_ delta: Int) -> KeyPress.Result {
+        guard !suggestions.isEmpty else { return .ignored }
+        highlighted = (highlighted + delta + suggestions.count) % suggestions.count
+        return .handled
+    }
+
+    private func resize() {
+        let rows = suggestions.count
+        let height = QuickChatPanelController.baseHeight
+            + (rows == 0 ? 0 : CGFloat(rows) * Self.rowHeight + 13)
+        QuickChatPanelController.shared.setHeight(height)
     }
 
     private var selectedName: String {
         chat.agents.first { $0.id == chat.selectedAgentId }?.name ?? "Anyone"
+    }
+}
+
+extension Array {
+    fileprivate subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
