@@ -77,8 +77,8 @@ private struct QuickChatView: View {
                     Button(agent.name) { chat.selectedAgentId = agent.id }
                 }
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "at")
+                HStack(spacing: 6) {
+                    MausIcon(size: 18)
                     Text(selectedName)
                 }
                 .font(.callout)

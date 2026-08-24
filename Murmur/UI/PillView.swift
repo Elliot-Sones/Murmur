@@ -69,22 +69,26 @@ struct PillView: View {
         HStack(spacing: 10) {
             switch bubble {
             case .waiting(let agent):
-                ProgressView().controlSize(.small)
+                MausIcon(size: 22)
                 Text("Asking \(agent)…").font(.callout)
+                ProgressView().controlSize(.small)
                 Spacer(minLength: 8)
             case .reply(let agent, let text):
                 Button {
                     chat.openMausAndDismiss()
                 } label: {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(agent)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(text)
-                            .font(.callout)
-                            .lineLimit(3)
-                            .truncationMode(.tail)
-                            .multilineTextAlignment(.leading)
+                    HStack(spacing: 10) {
+                        MausIcon(size: 22)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(agent)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(text)
+                                .font(.callout)
+                                .lineLimit(3)
+                                .truncationMode(.tail)
+                                .multilineTextAlignment(.leading)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
@@ -96,7 +100,7 @@ struct PillView: View {
                     chat.openMausAndDismiss()
                 } label: {
                     HStack(spacing: 10) {
-                        Image(systemName: "exclamationmark.bubble")
+                        MausIcon(size: 22)
                         Text(message).font(.callout)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

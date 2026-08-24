@@ -88,7 +88,7 @@ actor MausClient {
             case "message":
                 if event["threadId"] as? String == threadId,
                     let message = event["message"] as? [String: Any],
-                    message["role"] as? String == "assistant" {
+                    message["role"] as? String == "bot" {
                     sawReplyEvent = true
                 }
             case "bot":
@@ -107,22 +107,26 @@ actor MausClient {
         }
 
         // The turn is over (or timed out); read the outcome from the thread.
+        // Replies carry role "bot"; kinds beyond plain text (option cards,
+        // tool records) have no useful bubble text and are skipped.
         struct Page: Decodable { let messages: [Message] }
         struct Message: Decodable {
             let role: String?
+            let kind: String?
             let text: String?
-            let createdAt: Double?
+            let at: Double?
         }
         let data = try await get("/api/threads/\(threadId)/messages?limit=30")
         let messages = try JSONDecoder().decode(Page.self, from: data).messages
         let reply = messages.last { message in
-            guard message.role == "assistant",
+            guard message.role == "bot",
+                message.kind == "text",
                 let text = message.text,
                 !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             else { return false }
             // Only accept replies from this turn, not thread history.
-            guard let createdAt = message.createdAt else { return true }
-            return Date(timeIntervalSince1970: createdAt / 1000) >= sentAt.addingTimeInterval(-5)
+            guard let at = message.at else { return true }
+            return Date(timeIntervalSince1970: at / 1000) >= sentAt.addingTimeInterval(-5)
         }
         guard let reply, let text = reply.text else { throw MausError.noReply }
         return text
