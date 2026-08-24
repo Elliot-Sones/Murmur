@@ -8,12 +8,13 @@ struct PillView: View {
     private var reader: ReaderController { .shared }
     private var controller: DictationController { .shared }
     private var chat: QuickChatController { .shared }
+    private var requests: MausRequestMonitor { .shared }
     private var settings: SettingsStore { .shared }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var showsPanel: Bool {
         reader.isActive || controller.state != .idle || controller.showDoneRow
-            || chat.bubble != nil
+            || requests.current != nil || chat.bubble != nil
     }
 
     var body: some View {
@@ -36,6 +37,7 @@ struct PillView: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: controller.state)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: reader.isActive)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: chat.bubble)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: requests.current)
     }
 
     @ViewBuilder
@@ -53,6 +55,8 @@ struct PillView: View {
             case .idle:
                 if controller.showDoneRow {
                     doneRow
+                } else if let request = requests.current {
+                    requestRow(request)
                 } else if let bubble = chat.bubble {
                     quickChatRow(bubble)
                 } else {
@@ -117,6 +121,77 @@ struct PillView: View {
             .buttonStyle(.plain)
             .help("Dismiss")
             .accessibilityLabel("Dismiss agent reply")
+        }
+    }
+
+    // MARK: - Agent request (question / permission)
+
+    @ViewBuilder
+    private func requestRow(_ request: PendingRequest) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                MausIcon(size: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(request.isPermission ? "\(request.botName) · \(request.title)" : "\(request.botName) asks")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    if !request.detail.isEmpty {
+                        Text(request.detail)
+                            .font(request.isPermission ? .system(.callout, design: .monospaced) : .callout)
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                Spacer(minLength: 6)
+                Button {
+                    requests.dismissCurrent()
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Dismiss — answer it later in OpenMausBot")
+                .accessibilityLabel("Dismiss request")
+            }
+            requestActions(request)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func requestActions(_ request: PendingRequest) -> some View {
+        HStack(spacing: 8) {
+            if request.isPermission {
+                Button("Allow") { requests.allow() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                Button("Deny") { requests.deny() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            } else {
+                ForEach(request.choices.prefix(3), id: \.self) { choice in
+                    Button(choice) { requests.choose(choice) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .lineLimit(1)
+                }
+                Button(request.choices.isEmpty ? "Type an answer…" : "Type…") {
+                    RequestAnswerPanelController.shared.show(for: request)
+                }
+                .buttonStyle(request.choices.isEmpty ? .borderedProminent : .bordered)
+                .controlSize(.small)
+            }
+            Spacer(minLength: 4)
+            Button {
+                MausClient.openApp()
+            } label: {
+                Image(systemName: "arrow.up.forward.app").foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Open OpenMausBot")
+            .accessibilityLabel("Open OpenMausBot")
         }
     }
 

@@ -68,6 +68,38 @@ actor MausClient {
         _ = try await post("/api/bots/\(botId)/messages", body: ["text": text])
     }
 
+    /// Answer a pending request by thread, the way the desktop composer does.
+    /// behavior is "allow"/"deny" for a permission, or "answer" with a message
+    /// (a picked choice or typed text) for a question.
+    func respond(threadId: String, requestId: String, behavior: String, message: String? = nil) async throws {
+        var body = ["requestId": requestId, "behavior": behavior]
+        if let message { body["message"] = message }
+        _ = try await post("/api/threads/\(threadId)/respond", body: body)
+    }
+
+    /// Every actionable request across the fleet, from one `/api/bots` snapshot.
+    /// Each option card in a bot's transcript already reflects its final state,
+    /// so answered/dismissed cards are simply skipped by `PendingRequest.from`.
+    func pendingRequests() async throws -> [PendingRequest] {
+        let data = try await get("/api/bots")
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let bots = root["bots"] as? [[String: Any]]
+        else { return [] }
+        var out: [PendingRequest] = []
+        for bot in bots {
+            guard let threadId = bot["threadId"] as? String,
+                let name = bot["name"] as? String,
+                let messages = bot["messages"] as? [[String: Any]]
+            else { continue }
+            for message in messages {
+                if let request = PendingRequest.from(message: message, threadId: threadId, botName: name) {
+                    out.append(request)
+                }
+            }
+        }
+        return out
+    }
+
     /// Waits for the bot to finish its turn, then returns the turn's last
     /// assistant text. The event stream is only the completion signal (bot
     /// back to idle after having been busy, or an assistant message followed

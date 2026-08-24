@@ -35,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HotkeyService.shared.ensureRunning()
         PillPanelController.shared.show()
         SelectionSpeaker.shared.syncWithSettings()
+        MausRequestMonitor.shared.startIfEnabled()
     }
 
     /// Opening the app while it is already running surfaces the status window.

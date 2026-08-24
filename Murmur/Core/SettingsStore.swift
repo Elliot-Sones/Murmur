@@ -82,6 +82,7 @@ final class SettingsStore {
         static let ttsKokoroVoice = "ttsKokoroVoice"
         static let speakSelection = "speakSelectionEnabled"
         static let readerSpeed = "readerSpeed"
+        static let agentRequests = "agentRequestsEnabled"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -131,6 +132,10 @@ final class SettingsStore {
     var readerSpeed: Double {
         didSet { defaults.set(readerSpeed, forKey: Key.readerSpeed) }
     }
+    /// Surface bots' questions and permission requests in the pill.
+    var agentRequestsEnabled: Bool {
+        didSet { defaults.set(agentRequestsEnabled, forKey: Key.agentRequests) }
+    }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -153,5 +158,6 @@ final class SettingsStore {
         ttsKokoroVoice = defaults.string(forKey: Key.ttsKokoroVoice) ?? "af_heart"
         speakSelectionEnabled = defaults.object(forKey: Key.speakSelection) as? Bool ?? false
         readerSpeed = defaults.object(forKey: Key.readerSpeed) as? Double ?? 1.0
+        agentRequestsEnabled = defaults.object(forKey: Key.agentRequests) as? Bool ?? true
     }
 }
