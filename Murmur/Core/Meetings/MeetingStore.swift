@@ -12,8 +12,11 @@ struct MeetingRecord: Identifiable, Equatable {
     var durationSeconds: Double
     /// "recording" while live, "done" after End.
     var state: String
+    /// Cross-stream-deduplicated segments for display.
     var segments: [MeetingSegment]
     var notes: String
+    /// Sage's task summary, empty until the user summarizes.
+    var summary: String
 
     var isLive: Bool { state == "recording" }
 }
@@ -31,6 +34,10 @@ final class MeetingStore {
 
     private let root: URL
     private var transcriptHandles: [String: FileHandle] = [:]
+    /// Raw (pre-dedup) segments per meeting. transcript.jsonl on disk is the
+    /// append-only source of truth; the record's `segments` are the deduped
+    /// view. Kept in memory so live appends re-dedup without re-reading disk.
+    private var rawSegments: [String: [MeetingSegment]] = [:]
 
     init(root: URL? = nil) {
         self.root =
@@ -46,31 +53,29 @@ final class MeetingStore {
     func create(title: String) -> MeetingRecord {
         let record = MeetingRecord(
             id: UUID().uuidString, title: title, startedAt: Date(),
-            durationSeconds: 0, state: "recording", segments: [], notes: ""
+            durationSeconds: 0, state: "recording", segments: [], notes: "", summary: ""
         )
         let dir = directory(for: record.id)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         writeMeta(record)
         FileManager.default.createFile(atPath: transcriptURL(record.id).path, contents: nil)
         transcriptHandles[record.id] = try? FileHandle(forWritingTo: transcriptURL(record.id))
+        rawSegments[record.id] = []
         meetings.insert(record, at: 0)
         return record
     }
 
-    /// Appends one confirmed segment: JSONL on disk first, then the
-    /// in-memory copy the UI observes.
+    /// Appends one confirmed segment: raw JSONL on disk first (append-only,
+    /// crash-safe), then recompute the deduped view the UI observes.
     func append(_ segment: MeetingSegment, to id: String) {
         if let handle = transcriptHandles[id],
             var line = try? JSONEncoder().encode(segment) {
             line.append(0x0A)
             handle.write(line)
         }
+        rawSegments[id, default: []].append(segment)
         guard let index = meetings.firstIndex(where: { $0.id == id }) else { return }
-        // Keep segments ordered by offset; streams interleave out of order.
-        let insertAt = meetings[index].segments.lastIndex { $0.offset <= segment.offset }
-        meetings[index].segments.insert(
-            segment, at: insertAt.map { meetings[index].segments.index(after: $0) } ?? 0
-        )
+        meetings[index].segments = Self.deduped(rawSegments[id] ?? [])
     }
 
     func finish(_ id: String, duration: Double) {
@@ -94,13 +99,32 @@ final class MeetingStore {
         )
     }
 
+    func saveSummary(_ summary: String, for id: String) {
+        update(id) { $0.summary = summary }
+        try? summary.write(
+            to: directory(for: id).appendingPathComponent("summary.txt"),
+            atomically: true, encoding: .utf8
+        )
+    }
+
     func rename(_ id: String, to title: String) {
         update(id) { $0.title = title }
+    }
+
+    /// The deduped transcript as plain "[mm:ss] Speaker: text" lines.
+    func transcriptText(for id: String) -> String {
+        guard let record = meetings.first(where: { $0.id == id }) else { return "" }
+        return record.segments.map { segment in
+            let total = Int(segment.offset)
+            let stamp = String(format: "%d:%02d", total / 60, total % 60)
+            return "[\(stamp)] \(segment.source == "me" ? "Me" : "Them"): \(segment.text)"
+        }.joined(separator: "\n")
     }
 
     func delete(_ id: String) {
         try? transcriptHandles[id]?.close()
         transcriptHandles[id] = nil
+        rawSegments[id] = nil
         try? FileManager.default.removeItem(at: directory(for: id))
         meetings.removeAll { $0.id == id }
     }
@@ -118,9 +142,13 @@ final class MeetingStore {
         var loaded: [MeetingRecord] = []
         for dir in contents where dir.hasDirectoryPath {
             guard var record = readMeta(dir) else { continue }
-            record.segments = readTranscript(record.id)
+            let raw = readTranscript(record.id)
+            rawSegments[record.id] = raw
+            record.segments = Self.deduped(raw)
             record.notes =
                 (try? String(contentsOf: dir.appendingPathComponent("notes.txt"), encoding: .utf8)) ?? ""
+            record.summary =
+                (try? String(contentsOf: dir.appendingPathComponent("summary.txt"), encoding: .utf8)) ?? ""
             // A meeting still marked recording after a relaunch died with the
             // app; its confirmed transcript survived. Mark it done.
             if record.isLive { record.state = "done" }
@@ -168,7 +196,59 @@ final class MeetingStore {
         else { return nil }
         return MeetingRecord(
             id: meta.id, title: meta.title, startedAt: meta.startedAt,
-            durationSeconds: meta.durationSeconds, state: meta.state, segments: [], notes: ""
+            durationSeconds: meta.durationSeconds, state: meta.state,
+            segments: [], notes: "", summary: ""
+        )
+    }
+
+    // MARK: - Cross-stream dedup
+    //
+    // Without headphones-perfect isolation both captures pick up both voices,
+    // so the same utterance is transcribed twice, once per stream. Collapse
+    // opposite-source near-duplicates that land close in time, keeping the
+    // louder copy (the stream that actually captured the speaker).
+
+    static func deduped(_ raw: [MeetingSegment]) -> [MeetingSegment] {
+        let sorted = raw.sorted { $0.offset < $1.offset }
+        var kept: [MeetingSegment] = []
+        for seg in sorted {
+            if let idx = kept.lastIndex(where: { k in
+                k.source != seg.source
+                    && abs(k.offset - seg.offset) <= 8
+                    && similarity(k.text, seg.text) >= 0.5
+            }) {
+                // Same utterance heard on both streams: keep the better copy.
+                if isBetter(seg, than: kept[idx]) { kept[idx] = seg }
+            } else {
+                kept.append(seg)
+            }
+        }
+        return kept.sorted { $0.offset < $1.offset }
+    }
+
+    /// Louder wins when both have a clear energy reading; otherwise the
+    /// longer (more complete) transcription wins.
+    private static func isBetter(_ a: MeetingSegment, than b: MeetingSegment) -> Bool {
+        if let ea = a.energy, let eb = b.energy, abs(ea - eb) > 0.0005 {
+            return ea > eb
+        }
+        return a.text.count > b.text.count
+    }
+
+    private static func similarity(_ a: String, _ b: String) -> Double {
+        let ta = tokens(a), tb = tokens(b)
+        guard !ta.isEmpty, !tb.isEmpty else { return 0 }
+        let intersection = ta.intersection(tb).count
+        let union = ta.union(tb).count
+        return Double(intersection) / Double(union)
+    }
+
+    private static func tokens(_ s: String) -> Set<String> {
+        Set(
+            s.lowercased()
+                .split { !$0.isLetter && !$0.isNumber }
+                .map(String.init)
+                .filter { $0.count > 1 }
         )
     }
 

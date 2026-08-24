@@ -57,6 +57,29 @@ final class MeetingStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.meetings[0].segments.map(\.text), ["survives"])
     }
 
+    func testCrossStreamDedupKeepsLouderCopy() {
+        // Same utterance heard on both streams within the window; the louder
+        // one (me) should survive and the quiet echo (them) should be dropped.
+        let raw = [
+            MeetingSegment(source: "me", offset: 0, text: "let's do the A B test on the emails", energy: 0.05),
+            MeetingSegment(source: "them", offset: 2, text: "lets do the a b test on the emails", energy: 0.005),
+            MeetingSegment(source: "them", offset: 20, text: "completely different sentence about dashboards", energy: 0.04),
+        ]
+        let deduped = MeetingStore.deduped(raw)
+        XCTAssertEqual(deduped.count, 2)
+        XCTAssertEqual(deduped[0].source, "me")
+        XCTAssertTrue(deduped.contains { $0.text.contains("dashboards") })
+    }
+
+    func testDedupKeepsDistinctNearbySpeech() {
+        // Genuinely different content close in time must not be merged.
+        let raw = [
+            MeetingSegment(source: "me", offset: 0, text: "should we make a personalized dashboard", energy: 0.05),
+            MeetingSegment(source: "them", offset: 3, text: "well I've got the college coach demo landing page", energy: 0.05),
+        ]
+        XCTAssertEqual(MeetingStore.deduped(raw).count, 2)
+    }
+
     func testNotesPersistAndDeleteRemovesEverything() {
         let store = MeetingStore(root: tempRoot)
         let record = store.create(title: "Notes")

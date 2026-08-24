@@ -10,6 +10,10 @@ struct MeetingSegment: Codable, Equatable, Sendable {
     /// Seconds from meeting start where this segment's window began.
     let offset: Double
     let text: String
+    /// RMS loudness of this stream during the window. Lets cross-stream
+    /// dedup keep the copy from the stream that actually captured the
+    /// speaker (loud) over the one that only caught the leak (quiet).
+    var energy: Double? = nil
 }
 
 /// Live transcription for one meeting: two FluidAudio sliding-window
@@ -176,6 +180,13 @@ actor MeetingEngine {
             let windowCenter = state.nextWindowCenter
             state.nextWindowCenter += Self.chunkSamples
             let session = state.session
+            let energy = Self.rms(crossing)
+            // Diagnostic for the symmetric-bleed investigation: how loud was
+            // each stream for this window. Two loud streams at once => both
+            // captures contain both voices.
+            log.notice(
+                "meeting-energy \(name, privacy: .public) window=\(Int(Double(windowCenter) / Double(Self.sampleRate)))s rms=\(energy, format: .fixed(precision: 4))"
+            )
             let interval = signposter.beginInterval("meeting-window")
             let update = await InferenceGate.shared.run { [weak self] in
                 await self?.feed(crossing, to: session)
@@ -187,7 +198,8 @@ actor MeetingEngine {
                     MeetingSegment(
                         source: name,
                         offset: Double(windowCenter) / Double(Self.sampleRate),
-                        text: update.text
+                        text: update.text,
+                        energy: energy
                     )
                 )
             } else if update == nil {
@@ -287,6 +299,13 @@ actor MeetingEngine {
             channel[0].update(from: base, count: samples.count)
         }
         return buffer
+    }
+
+    private static func rms(_ samples: [Float]) -> Double {
+        guard !samples.isEmpty else { return 0 }
+        var sum = 0.0
+        for sample in samples { sum += Double(sample) * Double(sample) }
+        return (sum / Double(samples.count)).squareRoot()
     }
 
     private static func pcm16Data(_ samples: [Float]) -> Data {

@@ -59,6 +59,11 @@ actor MausClient {
         return MausBot(id: created.id, threadId: created.threadId, name: "Murmur")
     }
 
+    /// The bot with this name (case-insensitive), or nil if none.
+    func findBot(named name: String) async throws -> MausBot? {
+        try await listBots().first { $0.name.lowercased() == name.lowercased() }
+    }
+
     func send(_ text: String, to botId: String) async throws {
         _ = try await post("/api/bots/\(botId)/messages", body: ["text": text])
     }

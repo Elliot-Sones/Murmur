@@ -8,6 +8,7 @@ import SwiftUI
 struct MeetingsSettingsTab: View {
     private var store: MeetingStore { .shared }
     private var meetingController: MeetingController { .shared }
+    private var summarizer: MeetingSummarizer { .shared }
     @State private var selectedId: String?
     @State private var search = ""
     @State private var detailTab: DetailTab = .transcript
@@ -17,11 +18,13 @@ struct MeetingsSettingsTab: View {
     enum DetailTab: String, CaseIterable {
         case transcript
         case notes
+        case summary
 
         var icon: String {
             switch self {
             case .transcript: "text.alignleft"
             case .notes: "square.and.pencil"
+            case .summary: "sparkles"
             }
         }
 
@@ -29,6 +32,7 @@ struct MeetingsSettingsTab: View {
             switch self {
             case .transcript: "Transcript"
             case .notes: "My notes"
+            case .summary: "Tasks"
             }
         }
     }
@@ -175,6 +179,7 @@ struct MeetingsSettingsTab: View {
                         switch detailTab {
                         case .transcript: transcriptDocument(meeting)
                         case .notes: EmptyView()
+                        case .summary: summaryDocument(meeting)
                         }
                     }
                     .padding(.horizontal, 34)
@@ -290,6 +295,100 @@ struct MeetingsSettingsTab: View {
         }
     }
 
+    // MARK: - Summary (tasks from Sage)
+
+    @ViewBuilder
+    private func summaryDocument(_ meeting: MeetingRecord) -> some View {
+        let status = summarizer.status(for: meeting.id)
+        let _ = summarizer.revision  // observe changes
+        VStack(alignment: .leading, spacing: 14) {
+            if !meeting.summary.isEmpty {
+                Text("Your action items")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text(meeting.summary)
+                    .font(.system(size: 13.5))
+                    .lineSpacing(5)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 8) {
+                    Button {
+                        summarize(meeting)
+                    } label: {
+                        Label("Re-summarize", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(status == .sending)
+                    Button {
+                        MausClient.openApp()
+                    } label: {
+                        Label("Open in OpenMausBot", systemImage: "arrow.up.forward.app")
+                    }
+                }
+                .font(.caption)
+                .controlSize(.small)
+            } else {
+                switch status {
+                case .sending:
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("Sage is turning this meeting into your tasks…")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 120)
+                case .failed(let message):
+                    VStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.bubble")
+                            .font(.title3)
+                            .foregroundStyle(.orange)
+                        Text(message)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button("Retry") { summarize(meeting) }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 120)
+                case .idle:
+                    VStack(spacing: 10) {
+                        Image(systemName: "sparkles")
+                            .font(.title2)
+                            .foregroundStyle(Theme.tint)
+                        Text("Turn this meeting into tasks")
+                            .font(.callout.weight(.medium))
+                        Text("Sage reads the transcript and lists the action items for you.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button {
+                            summarize(meeting)
+                        } label: {
+                            Label("Summarize with Sage", systemImage: "sparkles")
+                        }
+                        .controlSize(.large)
+                        .buttonStyle(.borderedProminent)
+                        .tint(Theme.tint)
+                        .disabled(meeting.segments.isEmpty || meeting.id == meetingController.liveMeetingId)
+                        if meeting.id == meetingController.liveMeetingId {
+                            Text("Available once the meeting ends.")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 140)
+                }
+            }
+        }
+    }
+
+    private func summarize(_ meeting: MeetingRecord) {
+        summarizer.summarize(
+            meetingId: meeting.id,
+            title: meeting.title,
+            date: meeting.startedAt,
+            transcript: store.transcriptText(for: meeting.id)
+        )
+    }
+
     private func notesEditor(_ meeting: MeetingRecord) -> some View {
         TextEditor(
             text: Binding(
@@ -347,6 +446,16 @@ struct MeetingsSettingsTab: View {
 
     private func actionRail(_ meeting: MeetingRecord) -> some View {
         VStack(alignment: .leading, spacing: 18) {
+            railSection("Tasks") {
+                railButton(
+                    meeting.summary.isEmpty ? "Summarize with Sage" : "View tasks",
+                    icon: "sparkles",
+                    disabled: meeting.segments.isEmpty || meeting.id == meetingController.liveMeetingId
+                ) {
+                    detailTab = .summary
+                    if meeting.summary.isEmpty { summarize(meeting) }
+                }
+            }
             railSection("Share notes") {
                 railButton("Copy transcript", icon: "doc.on.doc", disabled: meeting.segments.isEmpty) {
                     copyTranscript(meeting)
