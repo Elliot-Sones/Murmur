@@ -36,12 +36,13 @@ your rough jottings into polished notes. Summaries land in OpenMausBot.
 ### 3. Meeting ends
 1. User clicks End (or capture auto-stops when the system audio stream
    reports the meeting app went silent/closed for N minutes; confirm first).
-2. Murmur posts to the dedicated **Meetings** bot in OpenMausBot:
-   meeting title, date, attendees (from the event), the user's typed
-   notes, the template, and the full transcript.
-3. The bot's reply is the polished summary. It appears in the reply
-   bubble (click opens OpenMausBot) and is saved with the meeting.
-4. The meeting (transcript + notes + summary) is stored locally.
+2. The meeting (transcript + notes) is stored **locally only** and opens
+   in the Meetings page of the Settings window.
+3. Nothing leaves the machine automatically. Summarization is an explicit
+   action: the **Send to summary** button on the meeting posts title,
+   date, attendees, typed notes, template, and transcript to the
+   dedicated **Meetings** bot in OpenMausBot, and the reply is saved back
+   onto the meeting as its summary.
 
 ## Architecture
 
@@ -92,18 +93,76 @@ merged by timestamp for display and for the summary prompt.
 - Trigger rule: event starts within 60 s, has ≥1 other attendee OR a
   video-conference URL. All-day events never trigger.
 
-### Summary via OpenMausBot
+### Summary via OpenMausBot (on demand only)
+- Triggered only by the **Send to summary** button; transcripts live
+  locally in the Meetings page and are never posted on their own.
 - A dedicated **Meetings** bot (auto-created like the Murmur bot, with a
   system description tuned for note-taking: structure, action items,
   decisions; keep the user's own notes verbatim as anchors).
 - Payload is one message: metadata header + user notes + transcript.
   Long transcripts chunk into sequential messages if they exceed the
   message size the harness accepts (measure; chunk at ~30k chars).
-- The reply is parsed as the summary. `MausClient` already covers bots,
-  messages, and reply-await; only chunking is new.
-- Every meeting is one thread-visible exchange, so the OpenMausBot
-  thread doubles as the meetings archive with follow-up Q&A for free
-  ("what did we decide about pricing last week?").
+- The reply is parsed as the summary, saved on the meeting, and shown in
+  the Summary tab. `MausClient` already covers bots, messages, and
+  reply-await; only chunking is new.
+- Sent meetings keep a link to the bot thread, so follow-up Q&A happens
+  in OpenMausBot ("what did we decide about pricing last week?").
+
+## Meetings page UI (Settings window)
+
+A new **Meetings** tab in the existing Settings `TabView`
+(`Label("Meetings", systemImage: "waveform.and.mic")`), following the
+native macOS idiom of the other tabs. Design rules applied: system
+controls and SF Symbols only, one primary action per screen, tabular
+numerals for times, every state designed (empty, loading, error), AA
+contrast in both appearances, 150-300ms transitions, reduced-motion
+respected.
+
+### Layout: two panes
+- **Left: meeting list** (`List`, inset style, ~260 pt wide).
+  - Search field on top (`.searchable`, ⌘F) matching titles, attendees,
+    and transcript text.
+  - Row: title (semibold), date + duration line in secondary color with
+    monospaced digits, and a trailing status glyph: small progress ring
+    while summarizing, a checkmark.seal for summarized, nothing for
+    local-only. A live recording pins to the top with a red recording
+    dot and elapsed time.
+  - Sorted newest first. Selection preserved across tab switches.
+  - Empty state: "No meetings yet", one-line explainer, and a Start
+    meeting notes button.
+- **Right: detail** for the selected meeting.
+  - Header: editable title, date · duration · attendee names (plain
+    text, secondary). No chrome, no cards.
+  - Segmented picker: **Transcript · Notes · Summary**.
+  - **Transcript tab:** virtualized `List` of segments. Each row:
+    timestamp (caption, monospaced digits), speaker label, text.
+    Speaker labels are text in fixed tint: Me in the accent color,
+    Speaker 1..N in muted distinguishable tints, never color-only
+    (label text always present). During a live meeting the list streams,
+    pinned to bottom, with a "Jump to latest" capsule when scrolled up.
+    Row hover reveals a copy button.
+  - **Notes tab:** plain `TextEditor`, autosaved, placeholder "Type
+    rough notes during the meeting; the summary uses them as anchors."
+  - **Summary tab:** the page's single primary CTA lives here.
+    - Not summarized: empty state with template picker (menu) and one
+      prominent **Send to summary** button (accent). Caption under it:
+      "Sends this meeting to OpenMausBot." Disabled while recording.
+    - Sending: inline progress ("Summarizing with Meetings bot…"),
+      cancellable; button disabled during flight.
+    - Summarized: the summary as selectable rich text, with secondary
+      actions: Open in OpenMausBot, Copy, Re-summarize.
+    - Failure: inline error with the cause and a Retry button; nothing
+      modal.
+- **Footer toolbar** (detail pane): Copy transcript, Export Markdown,
+  and Delete (destructive tint, right-aligned, confirmation dialog,
+  undo toast after).
+
+### Keyboard and accessibility
+- ⌘F focuses search; ⌘⌫ deletes the selected meeting (with confirm);
+  Return renames; arrows move list selection.
+- Every control labeled for VoiceOver; transcript rows read as
+  "speaker, time, text". Focus order matches visual order.
+- Dynamic Type respected; timestamps never truncate (fixed column).
 
 ### Storage
 `MeetingStore` (Core Data, like `HistoryStore`): title, date, calendar
@@ -141,13 +200,18 @@ Mic permission already exists.
 4. **Tools polish (1-2 days).** Notes window, templates, history UI,
    export, settings.
 
+## Decided
+- Transcripts stay local, shown in the Meetings page of Settings.
+  OpenMausBot receives a meeting only when the user clicks Send to
+  summary (the transcript goes along in that message so the bot can
+  summarize it; nothing is sent automatically).
+- Summaries go to a dedicated Meetings bot.
+- Diarization is in scope: Me/Them from the streams, Them split by
+  voice, names mapped from calendar attendees when context allows.
+
 ## Open questions
-1. Which OpenMausBot agent should summarize: a new dedicated Meetings
-   bot (recommended, keeps a clean archive thread) or an existing one?
-2. Should the transcript itself go into OpenMausBot (searchable there,
-   but large), or only the summary, with the transcript staying local?
-3. Auto-stop behavior: end capture automatically when the meeting app
+1. Auto-stop behavior: end capture automatically when the meeting app
    goes quiet, or always require an explicit End click?
-4. Multi-display/multi-app calls: capture all system audio (simple,
+2. Multi-display/multi-app calls: capture all system audio (simple,
    catches music too) or only the meeting app's audio (cleaner, needs
    app detection)? v1 proposal: all system audio.
