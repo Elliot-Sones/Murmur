@@ -80,7 +80,12 @@ final class DictationController {
             }
         }
         log.notice("Apple cleanup available: \(FoundationModelsCleanup.isAvailable)")
-        cleanup.prewarm(context: CleanupContext(dictionary: DictionaryStore.shared.words))
+        // Prewarm only when the Apple engine will actually be used. A broken
+        // Apple Intelligence asset can take the whole process down inside
+        // LanguageModelSession.prewarm, so an unused engine must not load.
+        if SettingsStore.shared.cleanupEnabled, SettingsStore.shared.cleanupEngine == .apple {
+            cleanup.prewarm(context: CleanupContext(dictionary: DictionaryStore.shared.words))
+        }
     }
 
     func beginDictation(mode requestedMode: Mode = .insert) {
