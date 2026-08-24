@@ -39,7 +39,7 @@ final class QuickChatController {
         Task {
             // Refresh the fleet in the background; the panel opens instantly.
             if let bots = try? await MausClient.shared.listBots() {
-                agents = bots.filter { $0.name.lowercased() != "murmur" }
+                agents = bots.filter { $0.name.lowercased() != "murmur" && $0.hidden != true }
                 if let selectedAgentId, !agents.contains(where: { $0.id == selectedAgentId }) {
                     self.selectedAgentId = nil
                 }

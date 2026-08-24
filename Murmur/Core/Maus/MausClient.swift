@@ -6,6 +6,9 @@ struct MausBot: Decodable, Identifiable, Equatable, Sendable {
     let id: String
     let threadId: String
     let name: String
+    /// Hidden bots exist in the store but are tucked away in the app's UI;
+    /// the quick chat mirrors the app and does not offer them.
+    var hidden: Bool? = nil
 }
 
 enum MausError: Error {
