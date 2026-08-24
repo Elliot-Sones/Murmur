@@ -177,11 +177,19 @@ struct PillView: View {
                         .controlSize(.small)
                         .lineLimit(1)
                 }
-                Button(request.choices.isEmpty ? "Type an answer…" : "Type…") {
-                    RequestAnswerPanelController.shared.show(for: request)
+                if request.choices.isEmpty {
+                    Button("Type an answer…") {
+                        RequestAnswerPanelController.shared.show(for: request)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                } else {
+                    Button("Type…") {
+                        RequestAnswerPanelController.shared.show(for: request)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
-                .buttonStyle(request.choices.isEmpty ? .borderedProminent : .bordered)
-                .controlSize(.small)
             }
             Spacer(minLength: 4)
             Button {

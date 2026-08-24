@@ -126,6 +126,20 @@ private struct GeneralSettingsTab: View {
                 }
             }
 
+            Section("Agents (OpenMausBot)") {
+                Toggle("Ask me agent questions and approvals in the pill", isOn: Binding(
+                    get: { settings.agentRequestsEnabled },
+                    set: {
+                        settings.agentRequestsEnabled = $0
+                        if $0 { MausRequestMonitor.shared.startIfEnabled() }
+                        else { MausRequestMonitor.shared.stop() }
+                    }
+                ))
+                Text("When a bot needs a decision, the bottom pill shows it so you can allow, deny, pick a choice, or type an answer. Press Option+Space to message an agent.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Behavior") {
                 Toggle("Live preview in HUD while dictating", isOn: Binding(
                     get: { settings.streamingPreviewEnabled },
