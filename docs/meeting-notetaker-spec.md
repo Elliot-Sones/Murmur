@@ -86,8 +86,14 @@ Reuse the Parakeet sliding-window engine. Two constraints shape this:
   disk as it arrives, so a crash mid-meeting loses at most the current
   window, and the spill file lets a relaunch re-transcribe that tail
   and recover the meeting fully.
-- **Latency.** Live text lands ~10-15 s behind speech (11 s chunk +
-  2 s look-ahead before text is committed). Accuracy over immediacy.
+- **Latency: two-tier live text.** Confirmed text lands ~10-15 s behind
+  speech (11 s chunk + 2 s look-ahead). On top of it, a provisional
+  pass re-transcribes the last few seconds of the active stream every
+  ~1.5 s (through the shared inference slot, same as the dictation
+  preview), so words appear near-instantly in a lighter style and get
+  replaced by confirmed text as chunks commit. Granola feels instant
+  because it streams audio to cloud ASR (Deepgram/AssemblyAI); this
+  achieves the same perceived immediacy fully locally.
 - **Failed windows.** A window that errors is skipped with a gap
   marker; gaps are re-transcribed from the spill file at meeting end.
 
