@@ -77,11 +77,19 @@ Reuse the Parakeet sliding-window engine. Two constraints shape this:
   window. At ~130 ms per 11 s window this is ~2.4% duty cycle for a
   two-stream meeting. Dictation stays usable mid-meeting; its passes just
   share the same slot.
-- **Memory.** One hour of 16 kHz mono Float32 is ~230 MB per stream.
-  The sliding-window session already consumes samples as it confirms
-  windows; capture buffers drop audio once its window is confirmed.
-  Confirmed text (with stream tag + timestamps) appends to disk as it
-  arrives, so a crash mid-meeting loses at most the current window.
+- **Memory.** The sliding-window session consumes samples as it
+  confirms windows; capture buffers hold only the current ~15 s window
+  per stream (~2 MB total). Raw audio needed later (diarization, gap
+  repair) spills to a temp file on disk (16-bit PCM, ~115 MB/hour) and
+  is deleted after post-processing. RAM stays flat for arbitrarily long
+  meetings. Confirmed text (with stream tag + timestamps) appends to
+  disk as it arrives, so a crash mid-meeting loses at most the current
+  window, and the spill file lets a relaunch re-transcribe that tail
+  and recover the meeting fully.
+- **Latency.** Live text lands ~10-15 s behind speech (11 s chunk +
+  2 s look-ahead before text is committed). Accuracy over immediacy.
+- **Failed windows.** A window that errors is skipped with a gap
+  marker; gaps are re-transcribed from the spill file at meeting end.
 
 Transcript model: ordered segments `{ start, end, source: me|them, text }`,
 merged by timestamp for display and for the summary prompt.
