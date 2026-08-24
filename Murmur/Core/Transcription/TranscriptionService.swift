@@ -19,6 +19,8 @@ protocol TranscriptionService: Sendable {
     func streamSamples(_ allSamples: [Float]) async
     func finishStream(_ allSamples: [Float]) async throws -> String
     func abortStream() async
+    /// Text accumulated so far by an active streaming session, nil if none.
+    func streamingPreviewText() async -> String?
 }
 
 /// Engines without streaming support transparently fall back to batch.
@@ -29,4 +31,5 @@ extension TranscriptionService {
         try await transcribe(allSamples)
     }
     func abortStream() async {}
+    func streamingPreviewText() async -> String? { nil }
 }

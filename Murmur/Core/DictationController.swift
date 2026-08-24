@@ -285,26 +285,31 @@ final class DictationController {
         }
     }
 
-    /// Re-runs the batch engine over the growing buffer for a live HUD preview.
-    /// Cheap on Apple Silicon (~100 ms per tick at 110x realtime). Display
-    /// only; the final transcript comes from the sliding-window session, which
-    /// emits no updates until ~13 s of audio exist, too late for a live HUD.
+    /// Live HUD preview. Short recordings re-run the batch engine over the
+    /// growing buffer (~100 ms per tick at 110x realtime). Past 12 s the loop
+    /// switches to the sliding-window session's accumulated text: the session
+    /// starts processing chunks once 13 s of audio exist, and FluidAudio's
+    /// global MLMultiArray cache cannot survive a batch pass running
+    /// concurrently with chunk processing (heap corruption), so batch
+    /// previews must stop before that point.
     private func startPreviewLoop() {
         previewTask?.cancel()
         previewTask = Task {
             let minimumSamples = 16_000
-            let previewWindow = 16_000 * 60
+            let batchPreviewLimit = 16_000 * 12
             while !Task.isCancelled, state == .recording {
                 try? await Task.sleep(for: .milliseconds(900))
                 guard !Task.isCancelled, state == .recording else { return }
                 guard await transcriber.isReady else { continue }
-                var samples = recorder.snapshotSamples()
+                let samples = recorder.snapshotSamples()
                 guard samples.count >= minimumSamples else { continue }
-                if samples.count > previewWindow {
-                    samples = Array(samples.suffix(previewWindow))
+                let text: String?
+                if samples.count < batchPreviewLimit {
+                    text = try? await transcriber.transcribe(samples)
+                } else {
+                    text = await transcriber.streamingPreviewText()
                 }
-                guard let text = try? await transcriber.transcribe(samples) else { continue }
-                if state == .recording, !text.isEmpty {
+                if state == .recording, let text, !text.isEmpty {
                     previewText = text
                 }
             }

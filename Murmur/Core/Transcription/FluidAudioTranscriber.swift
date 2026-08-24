@@ -14,6 +14,23 @@ actor FluidAudioTranscriber: TranscriptionService {
     private var models: AsrModels?
     private var window: SlidingWindowAsrManager?
     private var windowFedSamples = 0
+    /// FluidAudio recycles MLMultiArrays through one global cache shared by
+    /// every ASR engine instance, and returning an array zeroes memory another
+    /// in-flight prediction may still read (observed as libmalloc free-block
+    /// corruption). Batch passes and stream finishes therefore take turns
+    /// through this slot; window-chunk processing during recording is kept
+    /// exclusive by the preview cutoff in DictationController instead.
+    private var inference: Task<String, any Error>?
+
+    private func withInferenceSlot(
+        _ body: @escaping @Sendable () async throws -> String
+    ) async throws -> String {
+        while let running = inference { _ = try? await running.value }
+        let task = Task { try await body() }
+        inference = task
+        defer { inference = nil }
+        return try await task.value
+    }
 
     private static let streamFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32, sampleRate: 16_000, channels: 1, interleaved: false
@@ -35,10 +52,22 @@ actor FluidAudioTranscriber: TranscriptionService {
 
     func transcribe(_ samples: [Float]) async throws -> String {
         guard let manager else { throw TranscriberError.notReady }
-        // Fresh decoder state per utterance; dictations are independent.
-        var decoderState = try TdtDecoderState()
-        let result = try await manager.transcribe(samples, decoderState: &decoderState)
-        return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return try await withInferenceSlot {
+            // Fresh decoder state per utterance; dictations are independent.
+            var decoderState = try TdtDecoderState()
+            let result = try await manager.transcribe(samples, decoderState: &decoderState)
+            return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+
+    /// Accumulated text of the active streaming session (confirmed windows
+    /// plus the volatile tail), for the HUD once batch previews must stop.
+    func streamingPreviewText() async -> String? {
+        guard let window else { return nil }
+        let confirmed = await window.confirmedTranscript
+        let volatile = await window.volatileTranscript
+        let joined = [confirmed, volatile].filter { !$0.isEmpty }.joined(separator: " ")
+        return joined.isEmpty ? nil : joined
     }
 
     /// A sliding-window session is single-use: its input stream cannot be
@@ -66,20 +95,25 @@ actor FluidAudioTranscriber: TranscriptionService {
 
     func finishStream(_ allSamples: [Float]) async throws -> String {
         guard let window else { return try await transcribe(allSamples) }
+        guard let manager else { throw TranscriberError.notReady }
         // Nil out before the first await so a late streamSamples from the
         // feed loop cannot inject audio into a finishing session.
         self.window = nil
-        if allSamples.count > windowFedSamples,
-            let buffer = Self.pcmBuffer(from: Array(allSamples[windowFedSamples...])) {
-            await window.streamAudio(buffer)
-        }
+        let tail = allSamples.count > windowFedSamples ? Array(allSamples[windowFedSamples...]) : []
         windowFedSamples = 0
-        do {
-            let text = try await window.finish()
-            return text.trimmingCharacters(in: .whitespacesAndNewlines)
-        } catch {
-            // Every window failed; one batch pass still saves the dictation.
-            return try await transcribe(allSamples)
+        return try await withInferenceSlot {
+            if let buffer = Self.pcmBuffer(from: tail) {
+                await window.streamAudio(buffer)
+            }
+            do {
+                let text = try await window.finish()
+                return text.trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                // Every window failed; one batch pass still saves the dictation.
+                var decoderState = try TdtDecoderState()
+                let result = try await manager.transcribe(allSamples, decoderState: &decoderState)
+                return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
         }
     }
 
