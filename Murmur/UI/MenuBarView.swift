@@ -29,7 +29,10 @@ struct MenuBarView: View {
         Divider()
         Button("Settings…") { SettingsWindowController.shared.show() }
         Divider()
-        Button("Quit Murmur") { NSApp.terminate(nil) }
+        Button("Quit Murmur") {
+            (NSApp.delegate as? AppDelegate)?.quitRequested = true
+            NSApp.terminate(nil)
+        }
     }
 
     private var statusLine: String {
