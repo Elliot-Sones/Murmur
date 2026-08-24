@@ -100,6 +100,8 @@ final class MeetingController {
             startedAt = Date()
             state = .recording(meetingId: record.id)
             SoundCue.recordingStarted()
+            // Surface the live transcript right away.
+            SettingsWindowController.shared.show(tab: "meetings")
             log.notice("meeting started: \(record.id, privacy: .public)")
         } catch {
             log.error("meeting start failed: \(error, privacy: .public)")

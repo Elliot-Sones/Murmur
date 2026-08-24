@@ -49,7 +49,18 @@ struct MeetingsSettingsTab: View {
                 .frame(minWidth: 460, maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
-            if selectedId == nil { selectedId = store.meetings.first?.id }
+            if let live = meetingController.liveMeetingId {
+                selectedId = live
+            } else if selectedId == nil {
+                selectedId = store.meetings.first?.id
+            }
+        }
+        .onChange(of: meetingController.liveMeetingId) {
+            // A meeting just started (or ended): jump to it live, stay on it after.
+            if let live = meetingController.liveMeetingId {
+                selectedId = live
+                detailTab = .transcript
+            }
         }
     }
 
