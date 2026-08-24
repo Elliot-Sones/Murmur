@@ -20,16 +20,33 @@ actor FluidAudioTranscriber: TranscriptionService {
     /// corruption). Batch passes and stream finishes therefore take turns
     /// through this slot; window-chunk processing during recording is kept
     /// exclusive by the preview cutoff in DictationController instead.
-    private var inference: Task<String, any Error>?
+    ///
+    /// FIFO handoff via continuations, deliberately not a polling loop: value
+    /// futures throw immediately for a cancelled awaiter, and a `while`/`try?`
+    /// retry then spins hot enough to starve the cooperative pool and
+    /// livelock the pipeline (seen in the field as a dictation stuck on
+    /// "Transcribing"). Continuations sit out cancellation, so a cancelled
+    /// preview pass simply waits its turn and finishes quietly.
+    private var slotBusy = false
+    private var slotWaiters: [CheckedContinuation<Void, Never>] = []
 
-    private func withInferenceSlot(
-        _ body: @escaping @Sendable () async throws -> String
-    ) async throws -> String {
-        while let running = inference { _ = try? await running.value }
-        let task = Task { try await body() }
-        inference = task
-        defer { inference = nil }
-        return try await task.value
+    private func withInferenceSlot<T: Sendable>(
+        _ body: () async throws -> T
+    ) async rethrows -> T {
+        if slotBusy {
+            await withCheckedContinuation { slotWaiters.append($0) }
+        } else {
+            slotBusy = true
+        }
+        defer {
+            if slotWaiters.isEmpty {
+                slotBusy = false
+            } else {
+                // Hand the slot straight to the next waiter.
+                slotWaiters.removeFirst().resume()
+            }
+        }
+        return try await body()
     }
 
     private static let streamFormat = AVAudioFormat(
@@ -105,15 +122,28 @@ actor FluidAudioTranscriber: TranscriptionService {
             if let buffer = Self.pcmBuffer(from: tail) {
                 await window.streamAudio(buffer)
             }
-            do {
-                let text = try await window.finish()
-                return text.trimmingCharacters(in: .whitespacesAndNewlines)
-            } catch {
-                // Every window failed; one batch pass still saves the dictation.
-                var decoderState = try TdtDecoderState()
-                let result = try await manager.transcribe(allSamples, decoderState: &decoderState)
-                return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            // finish() races a watchdog: a dictation must degrade to a batch
+            // pass rather than hang if the streaming engine ever wedges.
+            let finished: String? = await withTaskGroup(of: String?.self) { group in
+                group.addTask { try? await window.finish() }
+                group.addTask {
+                    try? await Task.sleep(for: .seconds(15))
+                    return nil
+                }
+                let first = await group.next() ?? nil
+                group.cancelAll()
+                return first
             }
+            if let finished {
+                return finished.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            // Timed out or every window failed. Stop the session and give its
+            // in-flight chunk a moment to drain before batch inference.
+            await window.cancel()
+            try? await Task.sleep(for: .milliseconds(300))
+            var decoderState = try TdtDecoderState()
+            let result = try await manager.transcribe(allSamples, decoderState: &decoderState)
+            return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
         }
     }
 
