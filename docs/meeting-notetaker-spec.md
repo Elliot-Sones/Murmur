@@ -53,8 +53,19 @@ Two simultaneous streams:
   target Zoom/Meet/Teams/browser when identifiable. Requires the Screen
   Recording permission (one-time TCC prompt; audio capture rides on it).
 
-Streams are resampled to 16 kHz mono and kept separate for "Me" / "Them"
-attribution (Granola-level attribution, not full diarization).
+Streams are resampled to 16 kHz mono and kept separate. The mic stream is
+"Me" by construction; the system stream is everyone else.
+
+### Speaker attribution
+Two tiers:
+- **Me / Them (free, exact):** which stream a segment came from.
+- **Them, split by voice (diarization):** FluidAudio's diarizer
+  (pyannote-based, ~17.7% DER) runs over the system stream and clusters
+  segments into Speaker 1..N. Runs after the meeting ends (one pass, off
+  the live path) so it cannot slow live transcription; it shares the
+  single-inference slot. The summary prompt includes the calendar
+  attendee names so the model can map Speaker 1..N to real names when
+  the conversation makes it obvious, and leaves numbered labels when not.
 
 ### Transcription
 Reuse the Parakeet sliding-window engine. Two constraints shape this:
