@@ -124,6 +124,16 @@ final class HotkeyService {
             return false
         }
 
+        // Option+Space opens the OpenMausBot quick chat. Swallowed so the
+        // focused app never sees the non-breaking space Option+Space types.
+        if type == .keyDown, keyCode == 49, !isAutorepeat,
+            event.flags.contains(.maskAlternate),
+            event.flags.intersection([.maskCommand, .maskControl, .maskShift]).isEmpty,
+            !machine.isCapturing, !commandMachine.isCapturing {
+            QuickChatController.shared.togglePanel()
+            return true
+        }
+
         if let classified = HotkeyEventClassifier.classify(
             type: type, keyCode: keyCode, flags: event.flags,
             isAutorepeat: isAutorepeat, chordActive: dictationChordDown, choice: choice

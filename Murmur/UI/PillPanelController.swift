@@ -78,6 +78,10 @@ final class PillPanelController {
         if DictationController.shared.state != .idle || DictationController.shared.showDoneRow {
             return NSSize(width: 400, height: 70)
         }
+        if QuickChatController.shared.bubble != nil {
+            // Replies can run a few lines; one size for the whole family.
+            return NSSize(width: 460, height: 96)
+        }
         return NSSize(width: 56, height: 34)
     }
 }

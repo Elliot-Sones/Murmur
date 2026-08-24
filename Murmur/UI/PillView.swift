@@ -7,11 +7,13 @@ struct PillView: View {
     private var speaker: SelectionSpeaker { .shared }
     private var reader: ReaderController { .shared }
     private var controller: DictationController { .shared }
+    private var chat: QuickChatController { .shared }
     private var settings: SettingsStore { .shared }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var showsPanel: Bool {
         reader.isActive || controller.state != .idle || controller.showDoneRow
+            || chat.bubble != nil
     }
 
     var body: some View {
@@ -33,6 +35,7 @@ struct PillView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: controller.state)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: reader.isActive)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: chat.bubble)
     }
 
     @ViewBuilder
@@ -50,10 +53,66 @@ struct PillView: View {
             case .idle:
                 if controller.showDoneRow {
                     doneRow
+                } else if let bubble = chat.bubble {
+                    quickChatRow(bubble)
                 } else {
                     EmptyView()
                 }
             }
+        }
+    }
+
+    // MARK: - Quick chat bubble
+
+    @ViewBuilder
+    private func quickChatRow(_ bubble: QuickChatController.Bubble) -> some View {
+        HStack(spacing: 10) {
+            switch bubble {
+            case .waiting(let agent):
+                ProgressView().controlSize(.small)
+                Text("Asking \(agent)…").font(.callout)
+                Spacer(minLength: 8)
+            case .reply(let agent, let text):
+                Button {
+                    chat.openMausAndDismiss()
+                } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(agent)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(text)
+                            .font(.callout)
+                            .lineLimit(3)
+                            .truncationMode(.tail)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Open OpenMausBot")
+            case .failure(let message):
+                Button {
+                    chat.openMausAndDismiss()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.bubble")
+                        Text(message).font(.callout)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            Button {
+                chat.dismissBubble()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Dismiss")
+            .accessibilityLabel("Dismiss agent reply")
         }
     }
 
