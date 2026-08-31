@@ -71,14 +71,20 @@ final class QuickChatController {
                     return
                 }
             }
+            // Each quick chat gets its own task, like "New task" in the app;
+            // a busy bot refuses, and the message rides the current thread.
+            let title = String(text.prefix(48))
+            let fresh = (try? await MausClient.shared.startNewTask(botId: bot.id, title: title))
+                ?? nil
+            let target = fresh ?? bot
             board.assignBot(
-                jobId, botId: bot.id, threadId: bot.threadId, name: bot.name,
-                color: bot.color, avatarUrl: bot.avatarUrl.flatMap(URL.init(string:))
+                jobId, botId: target.id, threadId: target.threadId, name: target.name,
+                color: target.color, avatarUrl: target.avatarUrl.flatMap(URL.init(string:))
             )
-            await run(jobId, botName: bot.name) {
-                try await MausClient.shared.send(text, to: bot.id)
+            await run(jobId, botName: target.name) {
+                try await MausClient.shared.send(text, to: target.id)
                 return try await MausClient.shared.awaitReply(
-                    botId: bot.id, threadId: bot.threadId
+                    botId: target.id, threadId: target.threadId
                 )
             }
         }

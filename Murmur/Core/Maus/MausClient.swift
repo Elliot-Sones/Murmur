@@ -68,6 +68,21 @@ actor MausClient {
         try await listBots().first { $0.name.lowercased() == name.lowercased() }
     }
 
+    /// Starts a fresh task (thread) on the bot — the app's "New task" — so
+    /// each Option+Space chat is its own conversation. Returns the bot with
+    /// the new thread active, or nil when the bot is busy (the server
+    /// refuses with 409); the caller then continues on the current thread
+    /// rather than dropping the message.
+    func startNewTask(botId: String, title: String) async throws -> MausBot? {
+        struct Created: Decodable { let bot: MausBot }
+        do {
+            let data = try await post("/api/bots/\(botId)/tasks", body: ["title": title])
+            return try JSONDecoder().decode(Created.self, from: data).bot
+        } catch MausError.badResponse(409) {
+            return nil
+        }
+    }
+
     func send(_ text: String, to botId: String) async throws {
         _ = try await post("/api/bots/\(botId)/messages", body: ["text": text])
     }
