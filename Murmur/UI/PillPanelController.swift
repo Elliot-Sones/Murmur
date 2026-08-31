@@ -82,9 +82,17 @@ final class PillPanelController {
             // A question or approval: headline, the detail, and a button row.
             return NSSize(width: 480, height: 140)
         }
-        if QuickChatController.shared.bubble != nil {
-            // Replies can run a few lines; one size for the whole family.
-            return NSSize(width: 460, height: 96)
+        let board = QuickChatController.shared.board
+        if !board.isEmpty {
+            if board.expandedJob != nil {
+                // Detail face: name, reply lines, and the action buttons.
+                return NSSize(width: 460, height: 96)
+            }
+            // Collapsed dock: just wide enough for the icons and "+N".
+            let icons = board.visibleJobs.count
+            let overflow = board.overflowCount > 0 ? 34 : 0
+            let width = CGFloat(44 + icons * 40 + overflow)
+            return NSSize(width: width, height: 52)
         }
         return NSSize(width: 56, height: 34)
     }

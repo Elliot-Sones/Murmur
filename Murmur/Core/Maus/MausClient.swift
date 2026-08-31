@@ -9,6 +9,10 @@ struct MausBot: Decodable, Identifiable, Equatable, Sendable {
     /// Hidden bots exist in the store but are tucked away in the app's UI;
     /// the quick chat mirrors the app and does not offer them.
     var hidden: Bool? = nil
+    /// Accent color name assigned in the OpenMausBot app (e.g. "teal").
+    var color: String? = nil
+    /// Custom avatar image, when the bot has one.
+    var avatarUrl: String? = nil
 }
 
 enum MausError: Error {

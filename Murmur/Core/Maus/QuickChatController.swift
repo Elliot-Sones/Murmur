@@ -3,31 +3,25 @@ import Observation
 import os
 
 /// Option+Space quick chat: a typed message to one OpenMausBot agent (or the
-/// dedicated "Murmur" bot when no agent is chosen), with the reply surfaced
-/// in the pill widget. Clicking the reply opens OpenMausBot.
+/// dedicated "Murmur" bot when no agent is chosen). Each send becomes a job
+/// on the agent activity dock in the pill widget; several agents can run at
+/// once. Clicking a job's icon expands its detail (reply, cancel, open app).
 @MainActor
 @Observable
 final class QuickChatController {
     static let shared = QuickChatController()
-
-    /// The pill's quick-chat face, shown alongside the dictation faces.
-    enum Bubble: Equatable {
-        case waiting(agent: String)
-        case reply(agent: String, text: String)
-        case failure(String)
-    }
 
     private let log = Logger(subsystem: "com.elliot.Murmur", category: "quickchat")
 
     private(set) var agents: [MausBot] = []
     var selectedAgentId: String?
     var draft = ""
-    private(set) var bubble: Bubble? {
+    private(set) var board = AgentJobBoard() {
         didSet { PillPanelController.shared.layout() }
     }
 
-    private var replyTask: Task<Void, Never>?
-    private var dismissTask: Task<Void, Never>?
+    private var jobTasks: [UUID: Task<Void, Never>] = [:]
+    private var expireTasks: [UUID: Task<Void, Never>] = [:]
 
     func togglePanel() {
         if QuickChatPanelController.shared.isVisible {
@@ -54,62 +48,87 @@ final class QuickChatController {
         draft = ""
         QuickChatPanelController.shared.hide()
 
-        replyTask?.cancel()
-        dismissTask?.cancel()
-        replyTask = Task {
+        let chosen = agentId.flatMap { id in agents.first { $0.id == id } }
+        let jobId = board.start(
+            agentName: chosen?.name ?? "Murmur",
+            botId: chosen?.id,
+            color: chosen?.color,
+            avatarUrl: chosen?.avatarUrl.flatMap(URL.init(string:))
+        )
+        PillPanelController.shared.show()
+
+        jobTasks[jobId] = Task {
+            defer { jobTasks[jobId] = nil }
             let bot: MausBot
-            do {
-                if let agentId, let chosen = agents.first(where: { $0.id == agentId }) {
-                    bot = chosen
-                } else {
+            if let chosen {
+                bot = chosen
+            } else {
+                do {
                     bot = try await MausClient.shared.findOrCreateMurmurBot()
+                } catch {
+                    fail(jobId, "OpenMausBot isn't running. Click to open it.", error: error)
+                    return
                 }
-            } catch {
-                showFailure("OpenMausBot isn't running. Click to open it.", error: error)
-                return
             }
-            bubble = .waiting(agent: bot.name)
-            PillPanelController.shared.show()
             do {
                 try await MausClient.shared.send(text, to: bot.id)
                 let reply = try await MausClient.shared.awaitReply(
                     botId: bot.id, threadId: bot.threadId
                 )
                 guard !Task.isCancelled else { return }
-                bubble = .reply(agent: bot.name, text: reply)
-                scheduleDismiss(after: .seconds(45))
+                board.finish(jobId, reply: reply)
+                scheduleExpiry(of: jobId, after: .seconds(45))
             } catch {
                 guard !Task.isCancelled else { return }
-                showFailure("No reply from \(bot.name). Click to open OpenMausBot.", error: error)
+                fail(jobId, "No reply from \(bot.name). Click to open OpenMausBot.", error: error)
             }
         }
     }
 
-    /// Click-through on the bubble: open the app, drop the bubble.
-    func openMausAndDismiss() {
+    // MARK: - Dock actions
+
+    func toggleExpanded(_ id: UUID) {
+        board.toggleExpanded(id)
+    }
+
+    func collapse() {
+        board.collapse()
+    }
+
+    /// Stop a running job and drop it from the dock.
+    func cancel(_ id: UUID) {
+        jobTasks[id]?.cancel()
+        jobTasks[id] = nil
+        dismiss(id)
+    }
+
+    func dismiss(_ id: UUID) {
+        expireTasks[id]?.cancel()
+        expireTasks[id] = nil
+        board.remove(id)
+    }
+
+    /// Click-through from a reply or failure: open the app, drop the job.
+    func openMausAndDismiss(_ id: UUID) {
         MausClient.openApp()
-        dismissBubble()
+        dismiss(id)
     }
 
-    func dismissBubble() {
-        replyTask?.cancel()
-        dismissTask?.cancel()
-        bubble = nil
-    }
+    // MARK: - Internals
 
-    private func showFailure(_ message: String, error: Error) {
+    private func fail(_ id: UUID, _ message: String, error: Error) {
         log.error("quick chat failed: \(error, privacy: .public)")
-        bubble = .failure(message)
+        board.fail(id, message: message)
         PillPanelController.shared.show()
-        scheduleDismiss(after: .seconds(20))
     }
 
-    private func scheduleDismiss(after delay: Duration) {
-        dismissTask?.cancel()
-        dismissTask = Task {
+    private func scheduleExpiry(of id: UUID, after delay: Duration) {
+        expireTasks[id]?.cancel()
+        expireTasks[id] = Task {
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
-            bubble = nil
+            expireTasks[id] = nil
+            board.expireIfDone(id)
         }
     }
 }
