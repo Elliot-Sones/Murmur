@@ -12,6 +12,12 @@ struct PillView: View {
     private var settings: SettingsStore { .shared }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// True when the agent dock is the only face: it earns a slimmer capsule.
+    private var showsDockOnly: Bool {
+        !chat.board.isEmpty && !reader.isActive && controller.state == .idle
+            && !controller.showDoneRow && requests.current == nil
+    }
+
     private var showsPanel: Bool {
         reader.isActive || controller.state != .idle || controller.showDoneRow
             || requests.current != nil || !chat.board.isEmpty
@@ -26,7 +32,7 @@ struct PillView: View {
                     RoundedRectangle(cornerRadius: 16).fill(.ultraThinMaterial)
                     face
                         .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, showsDockOnly ? 5 : 10)
                 }
                 .padding(4)
             } else {
@@ -68,29 +74,20 @@ struct PillView: View {
 
     // MARK: - Agent activity dock
 
-    /// Icon-first strip of running agents; one job at a time can expand into
-    /// its detail face (reply, cancel, open app).
-    @ViewBuilder
+    /// Icon-first strip of running agents. Clicking an icon opens the job's
+    /// thread panel (transcript + answer field); clicking again closes it.
     private var agentDock: some View {
-        if let job = chat.board.expandedJob {
-            expandedJobRow(job)
-        } else {
-            collapsedDock
-        }
-    }
-
-    private var collapsedDock: some View {
         HStack(spacing: 8) {
             ForEach(chat.board.visibleJobs) { job in
                 Button {
-                    chat.toggleExpanded(job.id)
+                    chat.openThread(job.id)
                 } label: {
                     AgentDockIcon(job: job, reduceMotion: reduceMotion)
                 }
                 .buttonStyle(.plain)
                 .help("\(job.agentName) — \(job.statusText)")
                 .accessibilityLabel("\(job.agentName), \(job.statusText)")
-                .accessibilityHint("Show details")
+                .accessibilityHint("Open thread")
             }
             if chat.board.overflowCount > 0 {
                 Text("+\(chat.board.overflowCount)")
@@ -99,62 +96,6 @@ struct PillView: View {
                     .foregroundStyle(.secondary)
                     .accessibilityLabel("\(chat.board.overflowCount) more agents")
             }
-        }
-    }
-
-    @ViewBuilder
-    private func expandedJobRow(_ job: AgentJobBoard.Job) -> some View {
-        HStack(spacing: 10) {
-            Button {
-                chat.collapse()
-            } label: {
-                AgentDockIcon(job: job, reduceMotion: reduceMotion)
-            }
-            .buttonStyle(.plain)
-            .help("Collapse")
-            .accessibilityLabel("Collapse \(job.agentName) details")
-
-            Button {
-                chat.openMausAndDismiss(job.id)
-            } label: {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(job.agentName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    switch job.phase {
-                    case .working:
-                        Text("Working…").font(.callout)
-                    case .done(let reply):
-                        Text(reply)
-                            .font(.callout)
-                            .lineLimit(3)
-                            .truncationMode(.tail)
-                            .multilineTextAlignment(.leading)
-                    case .failed(let message):
-                        Text(message).font(.callout).lineLimit(2)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Open OpenMausBot")
-
-            if job.isWorking {
-                Button("Cancel") { chat.cancel(job.id) }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .accessibilityLabel("Cancel \(job.agentName)")
-            }
-            Button {
-                chat.dismiss(job.id)
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Dismiss")
-            .accessibilityLabel("Dismiss \(job.agentName)")
         }
     }
 

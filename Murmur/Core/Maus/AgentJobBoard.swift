@@ -12,14 +12,24 @@ struct AgentJobBoard: Equatable {
             case failed(message: String)
         }
 
+        /// One exchange in the job's thread panel.
+        struct Turn: Identifiable, Equatable {
+            enum Role: Equatable { case user, bot }
+            let id = UUID()
+            let role: Role
+            let text: String
+        }
+
         let id: UUID
-        let agentName: String
-        let botId: String?
+        var agentName: String
+        var botId: String?
+        var threadId: String?
         /// The bot's accent color name from the OpenMausBot API, if set.
-        let color: String?
+        var color: String?
         /// The bot's custom avatar, if it has one.
-        let avatarUrl: URL?
+        var avatarUrl: URL?
         var phase: Phase = .working
+        var turns: [Turn] = []
 
         var isWorking: Bool { if case .working = phase { return true }; return false }
         var isFailed: Bool { if case .failed = phase { return true }; return false }
@@ -46,15 +56,44 @@ struct AgentJobBoard: Equatable {
 
     @discardableResult
     mutating func start(
-        agentName: String, botId: String?, color: String? = nil,
+        agentName: String, botId: String?, prompt: String, color: String? = nil,
         avatarUrl: URL? = nil, id: UUID = UUID()
     ) -> UUID {
-        jobs.append(Job(id: id, agentName: agentName, botId: botId, color: color, avatarUrl: avatarUrl))
+        jobs.append(
+            Job(
+                id: id, agentName: agentName, botId: botId, color: color,
+                avatarUrl: avatarUrl, turns: [Job.Turn(role: .user, text: prompt)]
+            ))
         return id
     }
 
+    /// Fills in the bot once it is resolved (the Murmur bot is created lazily).
+    mutating func assignBot(
+        _ id: UUID, botId: String, threadId: String, name: String,
+        color: String? = nil, avatarUrl: URL? = nil
+    ) {
+        update(id) {
+            $0.botId = botId
+            $0.threadId = threadId
+            $0.agentName = name
+            $0.color = color
+            $0.avatarUrl = avatarUrl
+        }
+    }
+
     mutating func finish(_ id: UUID, reply: String) {
-        update(id) { $0.phase = .done(reply: reply) }
+        update(id) {
+            $0.phase = .done(reply: reply)
+            $0.turns.append(Job.Turn(role: .bot, text: reply))
+        }
+    }
+
+    /// A follow-up question from the thread panel: back to working.
+    mutating func ask(_ id: UUID, text: String) {
+        update(id) {
+            $0.phase = .working
+            $0.turns.append(Job.Turn(role: .user, text: text))
+        }
     }
 
     mutating func fail(_ id: UUID, message: String) {

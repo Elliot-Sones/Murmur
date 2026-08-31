@@ -52,6 +52,7 @@ final class QuickChatController {
         let jobId = board.start(
             agentName: chosen?.name ?? "Murmur",
             botId: chosen?.id,
+            prompt: text,
             color: chosen?.color,
             avatarUrl: chosen?.avatarUrl.flatMap(URL.init(string:))
         )
@@ -70,29 +71,67 @@ final class QuickChatController {
                     return
                 }
             }
-            do {
+            board.assignBot(
+                jobId, botId: bot.id, threadId: bot.threadId, name: bot.name,
+                color: bot.color, avatarUrl: bot.avatarUrl.flatMap(URL.init(string:))
+            )
+            await run(jobId, botName: bot.name) {
                 try await MausClient.shared.send(text, to: bot.id)
-                let reply = try await MausClient.shared.awaitReply(
+                return try await MausClient.shared.awaitReply(
                     botId: bot.id, threadId: bot.threadId
                 )
-                guard !Task.isCancelled else { return }
-                board.finish(jobId, reply: reply)
-                scheduleExpiry(of: jobId, after: .seconds(45))
-            } catch {
-                guard !Task.isCancelled else { return }
-                fail(jobId, "No reply from \(bot.name). Click to open OpenMausBot.", error: error)
             }
+        }
+    }
+
+    /// A follow-up typed in the job's thread panel: same bot, same thread.
+    func sendFollowUp(_ id: UUID, text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+            let job = board.jobs.first(where: { $0.id == id }),
+            let botId = job.botId, let threadId = job.threadId
+        else { return }
+        expireTasks[id]?.cancel()
+        expireTasks[id] = nil
+        board.ask(id, text: trimmed)
+        let name = job.agentName
+        jobTasks[id] = Task {
+            defer { jobTasks[id] = nil }
+            await run(id, botName: name) {
+                try await MausClient.shared.send(trimmed, to: botId)
+                return try await MausClient.shared.awaitReply(botId: botId, threadId: threadId)
+            }
+        }
+    }
+
+    private func run(_ id: UUID, botName: String, _ exchange: () async throws -> String) async {
+        do {
+            let reply = try await exchange()
+            guard !Task.isCancelled else { return }
+            board.finish(id, reply: reply)
+            scheduleExpiry(of: id, after: .seconds(45))
+        } catch {
+            guard !Task.isCancelled else { return }
+            fail(id, "No reply from \(botName). Click to open OpenMausBot.", error: error)
         }
     }
 
     // MARK: - Dock actions
 
-    func toggleExpanded(_ id: UUID) {
+    /// A dock icon was clicked: open the job's thread panel.
+    func openThread(_ id: UUID) {
         board.toggleExpanded(id)
+        if board.expandedJobId == id {
+            AgentThreadPanelController.shared.show()
+        } else {
+            AgentThreadPanelController.shared.hide()
+        }
     }
 
-    func collapse() {
+    /// The thread panel closed: back to just the icon.
+    func closeThread() {
         board.collapse()
+        AgentThreadPanelController.shared.hide()
     }
 
     /// Stop a running job and drop it from the dock.
@@ -105,7 +144,9 @@ final class QuickChatController {
     func dismiss(_ id: UUID) {
         expireTasks[id]?.cancel()
         expireTasks[id] = nil
+        let wasOpen = board.expandedJobId == id
         board.remove(id)
+        if wasOpen { AgentThreadPanelController.shared.hide() }
     }
 
     /// Click-through from a reply or failure: open the app, drop the job.

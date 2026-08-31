@@ -84,15 +84,12 @@ final class PillPanelController {
         }
         let board = QuickChatController.shared.board
         if !board.isEmpty {
-            if board.expandedJob != nil {
-                // Detail face: name, reply lines, and the action buttons.
-                return NSSize(width: 460, height: 96)
-            }
-            // Collapsed dock: just wide enough for the icons and "+N".
+            // The dock: just wide enough for the icons and "+N". Details
+            // live in the separate thread panel, not in the pill.
             let icons = board.visibleJobs.count
             let overflow = board.overflowCount > 0 ? 34 : 0
-            let width = CGFloat(44 + icons * 40 + overflow)
-            return NSSize(width: width, height: 52)
+            let width = CGFloat(44 + icons * 26 + (icons - 1) * 8 + overflow)
+            return NSSize(width: width, height: 44)
         }
         return NSSize(width: 56, height: 34)
     }
