@@ -9,9 +9,11 @@ struct AgentDockIcon: View {
 
     @State private var spinning = false
 
+    private var botColor: Color { Self.color(named: job.color) ?? .accentColor }
+
     private var accent: Color {
         switch job.phase {
-        case .working: Self.color(named: job.color) ?? .accentColor
+        case .working: botColor
         case .done: .green
         case .failed: .red
         }
@@ -36,10 +38,21 @@ struct AgentDockIcon: View {
             AsyncImage(url: url) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
-                MausIcon(size: 24)
+                initialDisc
             }
         } else {
-            MausIcon(size: 24)
+            // Most bots have no custom avatar; mirror the OpenMausBot app's
+            // identity mark instead: the accent-colored disc with an initial.
+            initialDisc
+        }
+    }
+
+    private var initialDisc: some View {
+        ZStack {
+            Circle().fill(botColor.gradient)
+            Text(job.agentName.prefix(1).uppercased())
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
         }
     }
 
@@ -90,6 +103,7 @@ struct AgentDockIcon: View {
         case "orange": .orange
         case "yellow": .yellow
         case "green": .green
+        case "coral": Color(red: 1.0, green: 0.45, blue: 0.4)
         default: nil
         }
     }
